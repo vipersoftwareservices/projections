@@ -1,0 +1,6668 @@
+/*
+ * --------------------------------------------------------------
+ *               VIPER SOFTWARE SERVICES
+ * --------------------------------------------------------------
+ *
+ * @(#)Navigation.java	1.00 2003/06/15
+ *
+ * Copyright 1998-2002 by Viper Software Services
+ * 36710 Nichols Ave, Fremont CA, 94536
+ * All rights reserved.
+ *
+ * This software is the confidential and proprietary information
+ * of Viper Software Services. ("Confidential Information").  You
+ * shall not disclose such Confidential Information and shall use
+ * it only in accordance with the terms of the license agreement
+ * you entered into with Viper Software Services.
+ *
+ * @author Tom Nevin (TomNevin@pacbell.net)
+ *
+ * @version 1.0, 06/15/2003, Original version
+ *
+ * @note 
+ *    This package was developed from the following references:
+ *      Reference 1
+ *           Map Projections - A Working Manual,
+ *           USGS Professional Paper, First Ed., 1987.
+ *      Hereafter this reference will be refered to as 
+ *      the USGS Manual.
+ *
+ *      Reference 2
+ *           Defense Mapping Agency Product Specifications for
+ *           ARC Digitized Raster Graphics (ADRG)
+ *           First Edition July 1988, Coordination Draft.
+ *        
+ * ---------------------------------------------------------------
+ */
+
+import java.util.*;
+
+public class Navigation {
+
+	public final double PI_2 = Math.PI * 0.5;
+	public final double toRad = Math.PI / 180.0;
+	public final double toDeg = 180.0 / Math.PI;
+	
+ // SIMPSONS_MULTIPLIERS : INTEGERS (0 .. 10) = (1, 4, 2, 4, 2, 4, 2, 4, 2, 4, 1);
+
+class Pt {
+	double lat;
+	double lon;
+}
+
+class Area {
+	double north;
+	double south;
+	double east;
+	double west;
+}
+
+class TurnOutPt {
+	Pt ptTurn;
+	Pt ptA;
+	double angle1;
+	double angle2;
+	int rotation;
+}
+
+  ----------------------------------------------------------------
+  type PROJECTION_TYPE is 
+    (NONE,
+     XY_PLOT,
+     MERCATOR,
+     TRANSVERSE_MERCATOR,
+     TM,
+     LAMBERT_CONFORMAL_CONIC,
+     LCC,
+     SPACE_OBLIQUE_MERCATOR,
+     SOM,
+     AZIMUTHAL_EQUIDISTANT,
+     AE,
+     AZIMUTHAL_EQUAL_AREA,
+     AEA,
+     EQUIDISTANT_CYLINDRICAL,
+     EC,
+     CYLINDRICAL_EQUAL_AREA,
+     CEA,
+     ALBERS_EQUAL_AREA_CONIC,
+     ALBERS,
+     EQUIDISTANT_CONIC,
+     EDC,
+     ORTHOGRAPHIC,
+     OG,
+     STEREOGRAPHIC,
+     SG,
+     GENERAL,
+     GP,
+     POLYCONIC,
+     PC,
+     GNOMONIC,
+     BONNE,
+     MILLER,
+     CASSINI,
+     WGS84,
+     ADRG,
+     RASTER,
+     UNIVERSAL_TRANSVERSE_MERCATOR,
+     UTM);
+  
+  type SYSTEM_TYPE is (SPHERICAL, ELLIPSOID);
+
+  type POLAR_FLAG is (NORTH_POLE, SOUTH_POLE, NON_POLAR);
+  ----------------------------------------------------------------
+  -- Constants
+  ----------------------------------------------------------------
+  PI : constant := 3.1415_92653_58979_32384;
+  --
+  -- Conversion of METERS to Nautical Miles
+  --
+  M_TO_NM : constant := 0.000_539_995_68;
+  NM_TO_M : constant := 1_852.0;
+
+  METERS_TO_NAUTICAL_MILES : constant := M_TO_NM;
+  NAUTICAL_MILES_TO_METERS : constant := NM_TO_M;
+  --
+  -- Eccentricity of 1 => spheriod calculations
+  -- Eccentricity of Earth => Ellipsoid calculations
+  -- 
+  EARTH_ECCENTRICITY       : constant := 0.0822719;
+  --
+  -- Use the radius to convert the output to the desired units.
+  -- The Equatorial radius should be used for ellipsoid calculations
+  -- The Standard Radius should be use for spheriod calculations.
+  --  
+  DEGREES_RADIUS           : constant := 180.0 / PI;
+  STANDARD_RADIUS          : constant := 6_370_997.0; -- Meters
+  EQUATORIAL_RADIUS        : constant := 6_378_206.4; -- Meters
+  WGS84_A                  : constant := 6_378_137.0;
+  WGS84_B                  : constant := 6_356_752.3142;
+  EQUATORIAL_RADIUS_NM     : constant := EQUATORIAL_RADIUS * M_TO_NM;
+  --
+  --  o Landsat Parameters
+  --
+  LANDSAT123_INCLINE       : constant := 99.092; -- Degrees
+  LANDSAT123_P1            : constant := 251.0;
+  LANDSAT123_P2            : constant := 18.0;
+  LANDSAT123_C1            : constant := 128.87;
+  LANDSAT123_C2            : constant := 251.00;
+  LANDSAT123_R             : constant := 7_294_690.0;
+  
+  LANDSAT45_C1             : constant := 129.30;
+  LANDSAT45_C2             : constant := 233.00;
+
+  type ROTATION_TYPE is (CLOCKWISE, COUNTER_CLOCKWISE);
+  
+  ----------------------------------------------------------------
+  -- Latitude and Longitude values are in 
+  -- degrees and fractions thereof.
+  ----------------------------------------------------------------
+  type HEADING_TYPE is
+     record
+       BEARING  : DOUBLE;
+       DISTANCE : DOUBLE;
+     end record;
+  ----------------------------------------------------------------
+  -- 
+  ----------------------------------------------------------------
+  type SATELLITE_RECORD is  -- See Page 218
+    record -- Default is Landsat 1, 2, 3
+      PATH         : INT;
+      INCLINE      : DOUBLE := LANDSAT123_INCLINE;
+      P1           : DOUBLE := LANDSAT123_P1;
+      P2           : DOUBLE := LANDSAT123_P2;
+      C1           : DOUBLE := LANDSAT123_C1;
+      C2           : DOUBLE := LANDSAT123_C2;
+      EARTH_RADIUS : DOUBLE := EQUATORIAL_RADIUS;
+    end record;
+  
+  BLANK_SATELLITE_RECORD : SATELLITE_RECORD;
+  ----------------------------------------------------------------
+  -- 
+  ----------------------------------------------------------------
+  type SOM_RECORD is  -- See Page 225
+    record
+      B   : DOUBLE := 1.004560314;
+      A2  : DOUBLE := -0.0009425101;
+      A4  : DOUBLE := -0.0000012678;
+      A6  : DOUBLE := -0.0000000021;
+      C1  : DOUBLE := 0.1375926735;
+      C3  : DOUBLE := 0.0000299489;
+      C5  : DOUBLE := 0.0000000004;
+      R   : DOUBLE := 7_081_000.0;
+      I   : DOUBLE := 98.20;
+      P   : DOUBLE := 16.0 / 233.0;
+      Q   : DOUBLE := 0.0;
+      W   : DOUBLE := 0.0;
+      T   : DOUBLE := 0.0;
+      H   : DOUBLE := 0.0;
+      N   : DOUBLE := 0.0;
+      F   : DOUBLE := 0.0;
+      E2  : DOUBLE := 0.0;
+      J   : DOUBLE := 0.0;
+      X0  : DOUBLE := 0.0;
+    end record;
+  
+  BLANK_SOM_RECORD : SOM_RECORD;
+  ----------------------------------------------------------------
+  -- 
+  --  X0 => Longitude (degrees) of Origin 
+  --  Y0 => Latitude (degrees) of Origin
+  --  SX => Scale in Longitudinal direction of a pixel.
+  --  SY => Scale in Latitudinal direction of a pixel.
+  --  BX => Base Pixel of the Origin from Top Left
+  --  BY => Base Pixel of the Origin from Top Left
+  ----------------------------------------------------------------
+  type PROJECTION_INFORMATION is 
+    record
+      KIND         : PROJECTION_TYPE := MERCATOR;
+      X0           : DOUBLE      := 0.0;
+      Y0           : DOUBLE      := 0.0;
+      SP1          : DOUBLE      := 0.0;
+      SP2          : DOUBLE      := 0.0;
+      ECCENTRICITY : DOUBLE      := EARTH_ECCENTRICITY;
+      RADIUS       : DOUBLE      := EQUATORIAL_RADIUS;
+      CONVERGENCE  : DOUBLE      := 0.0;
+      K0           : DOUBLE      := 1.0;
+      P0           : DOUBLE      := 2.0 * EQUATORIAL_RADIUS;
+      SATELLITE    : SATELLITE_RECORD;
+      SOM          : SOM_RECORD      := BLANK_SOM_RECORD;
+      SX           : DOUBLE      := 1.0;
+      SY           : DOUBLE      := 1.0;
+      BX           : DOUBLE      := 0.0;
+      BY           : DOUBLE      := 0.0;
+      CALCULATED   : BOOLEAN         := FALSE;
+    end record;
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+private void println(String msg) {
+	System.out.println(msg);
+}
+    
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+    
+private int step(int swath, int steps) {
+   
+	int N = steps - 2;
+	int answer = (swath + N - (swath % N)) / N;	
+	if (answer <= 0) {
+		answer = 1;
+	}
+
+	return answer;
+}
+
+/** ----------------------------------------------------------
+ **
+ ** To calculate the azimuth of a value where,
+ ** Azimuth = 450 - VALUE or 360, whichever is smaller.
+ **
+ ** @param value is the input value
+ ** @return the azimuth value
+ **
+ ** ----------------------------------------------------------
+ **/
+private double toAzimuth(double value) {
+
+	double answer = 450.0 - value;
+	if (answer > 360.0) {
+		answer = answer - 360.0;
+	}
+	return answer;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+  
+private double fromAzimuth(double value) {
+
+	double answer = 450.0 - value;
+	if (answer > 360.0) {
+		answer = answer - 360.0;
+	}
+	return answer;
+}
+
+/** ----------------------------------------------------------
+ **
+ **  Page 30, Formula 5-4b
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public double getAzimuth(Pt pt1, Pt pt2) {
+
+	double answer = 0.0;
+	 
+	double X0 = (pt1.x - pt2.x) * toRad; 
+
+	double S1 =
+		Math.cos(pt2.y*toRad) * Math.sin(pt1.y*toRad) -
+		Math.sin(pt2.y*toRad) * Math.cos(pt1.y*toRad) * Math.cos(X0);
+
+	double S2 = Math.cos(pt1.y*toRad) * Math.sin(X0);
+
+	if (S1 != 0.0) {
+		S1 = S2 / S1;
+    
+      		answer = Math.atan(S1) * toDeg;
+		if (answer < 0.0) {
+			answer = 180.0 + answer; 
+		}
+
+      		//
+      		// Fix for International Data Line.
+      		//
+		if (pt2.x < pt1.x) {
+			answer = answer + 180.0;
+		}
+	} else if (S2 > 0.0) {
+		answer = 90.0;
+	} else {
+		answer = 270.0;
+	}
+	return answer;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Pt toXY2(Pt pt1, double B, double R, double RADIUS) {
+ 
+	double R0;
+	Pt pt2 = new Pt();
+    
+	// 
+	//  o Pre-calculate intermediate data
+	// 
+	double LS = Math.sin(pt1.Y * toRad);
+	double LC = Math.cos(pt1.Y * toRad);
+	double BC = Math.cos(B * toRad);
+	double DS = Math.sin(R / RADIUS);
+	double DC = Math.cos(R / RADIUS);
+
+	// 
+	// Bearing Range Calculation (For the Latitude).
+	// 
+
+	pt2.y = 90.0 - Math.acos(abs(LS*DC + LC*DS*BC)) * toDeg;
+
+	// 
+	// o Bearing Range Calculation (For the Longitude).
+	// 
+
+	R0 = (DC - LS * Math.sin(pt2.y*toRad)) / 
+	      (LC * Math.cos(pt2.y*toRad));
+	
+	R0 = Math.acos(abs(R0)) * toDeg;
+	
+	if (B < 0.0 || B > 180.0) {
+		pt2.x = pt1.x - R0;
+	} else {
+		pt2.x = pt1.x + R0;
+	}
+
+	return pt2;
+}
+  
+/** ----------------------------------------------------------
+ **
+ ** o Page 30, Formula 5-3a.
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public double getDistance(Pt pt1, Pt pt2, double radius) { 
+
+	double Y1 = Math.cos(pt1.y * toRad);
+	double Y2 = Math.cos(pt2.y * toRad);
+
+	double SY = (pt1.y - pt2.y) * toRad / 2.0;
+	double Y3 = Math.pow(Math.sin(SY), 2.0);
+    
+	double SX = (pt1.x - pt2.x) * toRad / 2.0;
+	double X1 = Math.pow(Math.sin(SX), 2.0);
+    
+	return Math.asin(Math.sqrt(Y3 + Y1 * Y2 * X1)) * 2.0 * RADIUS;
+
+}
+
+/** ----------------------------------------------------------
+ **
+ ** Calculate a bearing given two points.
+ **
+ **  Inputs:
+ **  * XY1     == First lat/lon point
+ **  * XY2     == Second lat/lon point
+ ** 
+ **  Outputs:
+ **  * Bearing (ANSWER)
+ ** 
+ **  Stack:
+ **  * DELTA_X == Difference between first and second latitudes
+ **  * DELTA_Y == Difference between first and second longitudes
+ ** 
+ **  Procedures/Functions Called:
+ **    ARC_TANGENT
+ ** 
+ **  Method:
+ **  * Calculate DELTA_X and DELTA_Y
+ **  * Calculate the bearing as follows:
+ **  *  If DELTA_X > 0.0 and DELTA_Y >= 0.0 then
+ **  *    Bearing = 90.0 - arctan (abs (DELTA_Y / DELTA_X));
+ **  *  If DELTA_X > 0.0 and DELTA_Y < 0.0 then
+ **  *    Bearing = 90.0 + arctan (abs (DELTA_Y / DELTA_X));
+ **  *  If DELTA_X < 0.0  and DELTA_Y > 0.0 then
+ **  *    Bearing = 270.0 + arctan (abs (DELTA_Y / DELTA_X));
+ **  *  If DELTA_X < 0.0  and DELTA_Y <= 0.0 then
+ **  *    Bearing = 270.0 - arctan (abs (DELTA_Y / DELTA_X));
+ **  *  If DELTA_Y < 0.0 then
+ **  *    Bearing = 180.0;
+ ** 
+ **  Note: XY1 and XY2 are in projection Units. 
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public double getBearing(Pt pt1, Pt pt2) {
+
+	double R0, answer = 0.0;
+ 
+	double DX = pt2.x - pt1.x;
+	double DY = pt2.y - pt1.y;
+
+	if (DX > 0.0 && DY >= 0.0) {
+		R0 = abs(DY / DX);
+		answer = 90.0 - Math.atan(R0) * toDeg;
+
+	} else if (DX > 0.0 && DY < 0.0) {
+		R0 = abs(DY / DX);
+		answer = 90.0 + Math.atan(R0) * toDeg;
+
+	} else if (DX < 0.0 && DY > 0.0) {
+		R0 = abs(DY / DX);
+		answer = 270.0 + Math.atan(R0) * toDeg;
+
+	} else if (DX < 0.0 && DY <= 0.0) {
+		R0 = abs(DY / DX);
+		answer = 270.0 - Math.atan(R0) * toDeg;
+
+	} else if (DY < 0.0) {
+		answer = 180.0;
+
+	} else {
+		answer = 0.0;
+	}
+
+	return answer;
+}
+
+/** ----------------------------------------------------------
+ **
+ ** Distance is in Projection Units,
+ ** XY1 and XY2 are projections and NOT degrees.
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public double getDistance(Pt pt1, Pt pt2) {
+
+	double DX = pt1.x - pt2.x;
+	double DY = pt1.y - pt2.y;
+
+	return Math.sqrt(DX * DX + DY * DY);
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Pt getPosition(Pt pt1, double distance, double bearing) {
+	Point pt2 = new Point();
+
+	double A = fromAzimuth(bearing) * toRad;
+    
+	pt2.y = Math.sin(A) * distance + pt1.y;
+	pt2.x = Math.cos(A) * distance + pt1.x;
+   
+	return pt2; 
+}
+
+/** ----------------------------------------------------------
+ **
+ ** 
+ **  Given:
+ **       The Position XY1 in Projection Units (METERS),
+ **       The Bearing in Azimuth Degrees,
+ **  Return:
+ **       The Slope of the Line Formed at Right Angles to the Bearing,
+ **       The Intercept of the Line along Latitude.
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public double getSlope(Pt pt1, double bearing) {
+  
+	double slope = INFINITY;  
+	double DISTANCE = 10_000.0;
+    
+	Pt pt2 = this.toXY2(pt1, distance, bearing);
+
+	if (pt2.x != pt1.x) {
+		slope = (pt2.y - pt1.y) / (pt2.x - pt1.x);
+	}
+	return slope;
+}
+
+/** ----------------------------------------------------------
+ **
+  --
+  -- Given:
+  --      The Position XY1 in Projection Units (METERS),
+  --      The Bearing in Azimuth Degrees,
+  -- Return:
+  --      The Slope of the Line Formed at Right Angles to the Bearing,
+  --      The Intercept of the Line along Latitude.
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public double getIntercept(Pt pt1, double bearing) {
+  
+	double intercept = pt1.x;  
+	double DISTANCE = 10_000.0;
+    
+	Pt pt2 = this.toXY2(pt1, distance, bearing);
+
+	if (pt2.x != pt1.x) {
+		double slope = (pt2.y - pt1.y) / (pt2.x - pt1.x);
+      		intercept = pt1.y - slope * pt1.x;
+	}
+	return intercept;
+}
+
+/** ----------------------------------------------------------
+ **
+  -- POSITION Given Current Position, Bearing and Range.
+  -- XY is a  projection and NOT degrees.
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Pt getPosition(Pt pt1, double heading, double distance) {
+
+	double R0 = heading * toRad;
+    
+	Pt pt2 = new Pt();
+	pt2.y = pt1.y + Math.cos(R0) * distance;
+	pt2.x = pt1.x + Math.sin(R0) * distance;
+    
+	return pt2;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public double crossProduct(Pt pt1, Pt pt2, Pt pt3) { 
+
+	return	(pt2.x - pt1.x) * (pt3.y - pt2.y) - 
+		(pt2.y - pt1.y) * (pt3.x - pt2.x);
+}
+  
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public TurnOutPt (Pt pt1, Pt pt2, Pt pt3, double radius) {
+
+	Pt ptA;
+	Pt ptT;
+
+	/** 
+	 ** Calculate Point A (the Center of the Arc).
+	 **
+	 ** Heading is the Angular Heading From Pnt_1 to Pnt_2,
+	 ** not great Circle Heading.
+	 **/
+
+	double heading = getBearing(pt1, pt2);
+
+	/**
+	 ** Point A Left is Radius units out from PNT_2 and
+	 ** at a right angle from the line between PNT_1 and PNT_2.
+	 **/
+
+	double scratch = heading - 90.0;
+	if (scratch < 0.0) {
+		scratch = scratch + 360.0;
+	}
+	
+	Pt ptLeft = getPosition(pt2, scratch, radius);
+
+	/**
+	 ** Point A Right is Radius units out from PNT_2 and
+	 ** at a right angle from the line between PNT_1 and PNT_2.
+	 **/
+
+	scratch = heading + 90.0;
+	if (scratch > 360.0) {
+		scratch = scratch - 360.0;
+	}
+
+	Pt ptRight = getPosition(pt2, scratch, radius);
+
+	/**
+	 ** Choose PNT_A as the Point closest to Point 3.
+	 **/
+
+	double distLeft = DISTANCE(pt3, ptLeft);
+
+	double distRight = DISTANCE(pt3, ptRight);
+	
+	if (distLeft < distRight) {
+		ptA.lat = ptLeft.lat;
+		ptA.lon = ptLeft.lon;
+	} else {
+		ptA.lat = ptRight.lat;
+		ptA.lon = ptRight.lon;
+	}
+
+	/**
+	 ** Calculate Point T (The Turn-out Point).
+	 **/
+
+	double dist3A = abs(getDistance(pt3, ptA));
+	double dist3T = Math.sqrt(abs(dist3A * dist3A - radius * radius));
+
+	/**
+	 ** NOTE: Problem here. If (2 * RADIUS) is greater then DIST_3A the
+	 ** Bank Angle is not great enough, the speed to high, or waypoints 
+	 ** or too close, In any event, the Waypoint 3 will not be reached.
+	 **/ 
+
+	double scratch1 = 0.0;
+	double heading = getBearing(pt3, ptA);
+	
+	if (dist3A != 0.0) {
+		scratch = dist3T / dist3A;
+		if (scratch > 1.0) {
+			scratch = 1.0;
+		}
+		scratch1 = Math.acos(scratch) * toDeg;
+	}
+
+	/**
+	 ** Point A Left is Radius units out from PNT_2 and
+	 ** at a right angle from the line between PNT_1 and PNT_2.
+	 **/
+	scratch = heading - scratch1;
+	if (scratch < 0.0) {
+		scratch = scratch + 360.0;
+	}
+
+	ptLeft = getPosition(pt3, scratch, dist3T);
+
+	/**
+	 ** Point A Right is Radius units out from PNT_2 and
+	 ** at a right angle from the line between PNT_1 and PNT_2.
+	 **/
+
+	scratch = heading + scratch1;
+	if (scratch >= 360.0) {
+		scratch = scratch - 360.0;
+	}
+
+	ptRight = getPosition(pt3, scratch, dist3T);
+
+	/**
+	 ** Choose PNT_T such that the Normal between
+	 ** PNT_1, PNT_2 and PNT_T has the same sign
+	 ** as the normal between PNT2, PNT_T and PNT_3.
+	 **/
+
+	double N1 = crossProduct(pt1, pt2, ptRight);
+	double N2 = crossProduect(pt2, ptRight, pt3);
+	
+	if (N1 * N2 >= 0.0) {
+		ptT = ptRight;
+	} else {
+		ptT = ptLeft;
+	}
+
+	/**
+	 ** Determine Rotation.
+ 	 **/	
+
+	TurnOutPt TO = new TurnOutPt();
+
+	N1 = crossProduct(pt1, ptT, pt3);
+	if (N1 <= 0.0) {
+		TO.rotation = CLOCKWISE;
+	} else {
+		TO.rotation = COUNTER_CLOCKWISE;
+	}
+
+	/**	
+	 ** Angle1 and Angle2 are the Start and Stop Angles
+	 **/
+	TO.angle1 = getBearing(ptA, pt2);
+	TO.angle2 = getBearing(ptA, ptT);
+	TO.ptA.lat = ptA.lat;
+	TO.ptA.lon = ptA.lon;
+	TO.ptT.lat = ptT.lat;
+	TO.ptT.lon = ptT.lon;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public void set(
+		ProjectionInformation info,
+		int kind,
+		double originLat,
+		double originLon,
+		double parallel1,
+		double parallel2,
+		double eccentricity,
+		double radius) {
+
+	info.kind = kind;
+	info.x0 = originLon;
+	info.y0 = originLat;
+	info.sp1 = parallel1;
+	info.sp2 = parallel2;
+	info.eccentricity = eccentricity;
+	info.radius = radius;
+	info.calculated = false;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+  
+  procedure SET_DEFAULTS
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             KIND         : PROJECTION_TYPE;
+	             WEST_LON     : DOUBLE;
+	             EAST_LON     : DOUBLE;
+	             NORTH_LAT    : DOUBLE;
+	             SOUTH_LAT    : DOUBLE) is
+
+  begin
+	
+	INFO.KIND         = KIND;
+	INFO.X0           = (WEST_LON + EAST_LON) / 2.0;
+	INFO.Y0           = SOUTH_LAT;
+	INFO.SP1          = SOUTH_LAT + (NORTH_LAT - SOUTH_LAT) / 6.0;
+	INFO.SP2          = SOUTH_LAT + (NORTH_LAT - SOUTH_LAT) * 5.0 / 6.0;
+	INFO.ECCENTRICITY = EARTH_ECCENTRICITY;
+	INFO.RADIUS       = EQUATORIAL_RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_DEFAULTS");
+	  
+  end SET_DEFAULTS;
+
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET (INFO       : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT : DOUBLE;
+	             ORIGIN_LON : DOUBLE) is
+	
+  begin
+	
+	INFO.X0         = ORIGIN_LON;
+	INFO.Y0         = ORIGIN_LAT;
+	INFO.CALCULATED = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET");
+	  
+  end SET;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET (INFO       : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT : DOUBLE;
+	             ORIGIN_LON : DOUBLE;
+	             PARALLEL_1 : DOUBLE;
+	             PARALLEL_2 : DOUBLE) is
+	
+  begin
+	
+	INFO.X0         = ORIGIN_LON;
+	INFO.Y0         = ORIGIN_LAT;
+	INFO.SP1        = PARALLEL_1;
+	INFO.SP2        = PARALLEL_2;
+	INFO.CALCULATED = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET");
+	  
+  end SET;
+  
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+public void Display(ProjectionInfo info) {
+  
+	System.out.println("----------------------------------------");
+	System.out.println("PROJECTION", PROJECTION_TYPE'IMAGE (INFO.KIND));
+	
+	System.out.println("X0", INFO.X0);
+	System.out.println("Y0", INFO.Y0);
+	System.out.println("SP1", INFO.SP1);
+	System.out.println("SP2", INFO.SP2);
+	
+	System.out.println("ECCENTRICITY", INFO.ECCENTRICITY);
+	System.out.println("RADIUS", INFO.RADIUS);
+	System.out.println("CONVERGENCE", INFO.CONVERGENCE);
+	System.out.println("CALCULATED", BOOLEAN'IMAGE (INFO.CALCULATED));
+	
+	if INFO.KIND = SOM or INFO.KIND = SPACE_OBLIQUE_MERCATOR then  
+
+	System.out.println("----------  SOM RECORD ------------------ ");
+	System.out.println("B ", INFO.SOM.B);
+	System.out.println("A2", INFO.SOM.A2);
+	System.out.println("A4", INFO.SOM.A4);
+	System.out.println("A6", INFO.SOM.A6);
+	System.out.println("C1", INFO.SOM.C1);
+	System.out.println("C3", INFO.SOM.C3);
+	System.out.println("C5", INFO.SOM.C5);
+	System.out.println("  ");
+	System.out.println("Q ", INFO.SOM.Q);
+	System.out.println("W ", INFO.SOM.W);
+	System.out.println("T ", INFO.SOM.T);
+	System.out.println("  ");
+	System.out.println("H ", INFO.SOM.H);
+	System.out.println("N ", INFO.SOM.N);
+	System.out.println("F ", INFO.SOM.F);
+	System.out.println("  ");
+	System.out.println("R ", INFO.SOM.H);
+	System.out.println("I ", INFO.SOM.N);
+	System.out.println("P ", INFO.SOM.F);
+	System.out.println("  ");
+	System.out.println("J ", INFO.SOM.J);
+	System.out.println("E2", INFO.SOM.E2);
+	System.out.println("X0", INFO.SOM.X0);
+	System.out.println("  ");
+	System.out.println("----------  SATELLITE RECORD ------------ ");
+	System.out.println("PATH", INFO.SATELLITE.PATH);
+	System.out.println("INCLINE", INFO.SATELLITE.INCLINE);
+	System.out.println("P1", INFO.SATELLITE.P1);
+	System.out.println("P2", INFO.SATELLITE.P2);
+	System.out.println("C1", INFO.SATELLITE.C1);
+	System.out.println"C2", INFO.SATELLITE.C2);
+	System.out.println("EARTH_RADIUS", INFO.SATELLITE.EARTH_RADIUS);
+
+	end if;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public Pt toXY(Pt pt0, ProjectionInfo info) { 
+
+	Pt pt = new Pt();
+
+	switch (info.kind) {
+	case info.XY_PLOT:
+	    	pt.x = pt0.X * toDeg / info.radius;
+	    	pt.y = pt0.Y * toDeg / info.radius;
+		break;
+	    
+	case info.MERCATOR;
+		Mercator2XY(pt0, info, pt);
+		break;
+	    
+	case info.TRANSVERSE_MERCATOR:
+	case info.TM:
+		TM2XY(pt0, info, pt);
+		break;
+	    
+	case info.LAMBERT_CONFORMAL_CONIC:
+	case info.LCC:
+		LCC2XY(pt0, info, pt);
+		break;
+	    
+	case info.SPACE_OBLIQUE_MERCATOR:
+	case info.SOM:
+		SOM2XY(pt0, info, pt);
+		break;
+	    
+	case info.AZIMUTHAL_EQUIDISTANT:
+	case info.AE:
+		Azimuthal2XY(pt0, info, pt);
+		break;
+	    
+	case info.AZIMUTHAL_EQUAL_AREA:
+	case info.AEA:
+		AEA2XY(pt0, info, pt);
+		break;
+	    
+	case info.EQUIDISTANT_CYLINDRICAL:
+	case info.EC:
+		EC2XY(pt0, info, pt);
+		break;
+
+	case info.WGS84:
+		WGS842XY(pt0, info, pt);
+		break;
+	    
+	case info.ORTHOGRAPHIC:
+	case info.OG:
+		ORTHO2XY(pt0, info, pt);
+		break;
+	    
+	case info.STEREOGRAPHIC:
+		Stereo2XY(pt0, info, pt);
+		break;
+	    
+	case info.GENERAL:
+	case info.GP:
+		General2XY(pt0, info, pt);
+		break;
+	    
+	case info.GNOMONIC:
+		Gnomonic2XY(pt0, info, pt);
+		break;
+	    
+	case info.MILLER;
+		miller2XY(pt0, info, pt);
+		break;
+	    
+	case info.ALBERS_EQUAL_AREA_CONIC:
+	case info.ALBERS:
+		ALBERS_TO_XY(pt0, info, pt);
+		break;
+
+	case info.POLYCONIC:
+	case info.PC:
+		PC_TO_XY(pt0, info, pt);
+		break;
+	    
+	case info.BONNE:
+		Bonne2XY(pt0, info, pt);
+		break;
+
+	case info.EQUIDISTANT_CONIC:
+	case info.EDC:
+		EDC_TO_XY(pt0, info, pt);
+		break;
+
+	case info.CYLINDRICAL_EQUAL_AREA:
+	case info.CEA:
+		CEA_TO_XY(pt0, info, pt);
+		break;
+
+	case info.CASSINI:
+		CASSINI_TO_XY(pt0, info, pt);
+		break;
+	    
+	case info.UNIVERSAL_TRANSVERSE_MERCATOR:
+	case info.UTM:
+		UTM_TO_XY(pt0, info, pt);
+		break;
+  
+	case info.ADRG:
+		ADRG_TO_XY(pt0, info, pt);
+		break;
+	    
+	case info.RASTER:
+		RASTER_TO_XY(pt0, info, pt);
+		break;
+	    
+	case info.NONE:
+		pt.x = pt0.x;
+		pt.y = pt0.y;
+		break;
+	}
+	return pt;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public Pt toProjection(Pt pt0, ProjectionInfo info) { 
+
+	Pt pt = new Pt();
+
+	switch info.kind is
+	case info.XY_PLOT:
+		pt.lon = pt0.lon * info.radius * toRad;
+		pt.lat = pt0.lat * info.radius * toRad;
+		break;
+	    
+	case info.MERCATOR:
+		toMercator(pt0, info, pt);
+		break;
+	    
+	case info.TRANSVERSE_MERCATOR:
+	case info.TM:
+		toTM(pt0, info, pt);
+		break;
+	    
+	case info.LAMBERT_CONFORMAL_CONIC:
+	case info.LCC:
+		toLCC(pt0, info, pt);
+		break;
+	    
+	case info.SPACE_OBLIQUE_MERCATOR:
+	case info.SOM:
+		toSOM(pt0, info, pt);
+		break;
+	    
+	case info.AZIMUTHAL_EQUIDISTANT:
+	case info.AE:
+		toAzimuthal(pt0, info, pt);
+		break;
+	    
+	case info.AZIMUTHAL_EQUAL_AREA:
+	case info.AEA:
+		toAEA(pt0, info, pt);
+		break;
+	    
+	case info.ORTHOGRAPHIC:
+	case info.OG:
+		toOrtho(pt0, info, pt);
+		break;
+	    
+	case info.STEREOGRAPHIC:
+	case info.SG:
+		toStereo(pt0, info, pt);
+		break;
+	    
+	case info.GENERAL:	
+	case info.GP:
+		toGeneral(pt0, info, pt);
+		break;
+	    
+	case info.GNOMONIC:
+		toGnomonic(pt0, info, pt);
+		break;
+	    
+	case info.MILLER:
+		toMiller(pt0, info, pt);
+		break;
+	    
+	case info.BONNE:
+		toBonne(pt0, info, pt);
+		break;
+	    
+	case info.ALBERS_EQUAL_AREA_CONIC:
+	case info.ALBERS:
+		toAlbers(pt0, info, pt);
+		break;
+	    
+	case info.EQUIDISTANT_CONIC:
+	case info.EDC:
+		toEDC(pt0, info, pt);
+		break;
+	    
+	case info.CASSINI:
+		toCassini(pt0, info, pt);
+		break;
+	    
+	case info.EQUIDISTANT_CYLINDRICAL:
+	case info.EC:
+		toEC(pt0, info, pt);
+		break;
+
+	case info.CYLINDRICAL_EQUAL_AREA:
+	case info.CEA:
+		toCEA(pt0, info, pt);
+		break;
+
+	case info.POLYCONIC:
+	case info.PC:
+		toPC(pt0, info, pt);
+		break;
+
+	case info.WGS84:
+		toWGS84(pt0, info, pt);
+		break;
+	    
+	case info.UNIVERSAL_TRANSVERSE_MERCATOR:
+	case info.UTM:
+		toUTM(pt0, info, pt);
+		break;
+
+	case info.ADRG:
+		toADRG(pt0, info, pt);
+		break;
+	    
+	case info.RASTER:
+		toRaster(pt0, info, pt);
+		break;
+	    
+	case info.NONE =>
+		pt.lat = pt0.lat;
+		pt.lon = pt0.lon;
+		break;
+	    
+	}
+	return pt;
+}
+  
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Vector Line(Pt pt1, Pt pt2, ProjectionInfo info, int npts) {
+
+	Pt ptN;
+	Vector pts = new Vector();
+
+	double B = getAzimuth(pt1, pt2);
+	double R = getDistance(pt1, pt2, info.radius);
+	double INC = R / double(npts - 1);
+	double R0 = 0.0;
+
+	for (int i = 0; i < (npts-1); i++) {
+		Pt pt = XY2(pt1, B, R0, info.radius);
+		ptN = new Pt();
+		pts.add(ptN);
+		Projection(pt, info, ptN);
+		R0 = R0 + INC; 
+	}
+
+	ptN = new Pt();
+	Projection (pt2, info, ptN);
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Vector Ellipse(
+		Pt center,
+		double major,
+		double minor,
+		double orient,
+		ProjectionInfo info,
+		int npts) {
+
+	Vector pts = new Vector();
+
+	int DEG = int(abs(orient)) & 360;
+	double MX2 = Math.cos(DEG);
+	double MY2 = Math.sin(DEG);
+	int ARC = degreeStep(360, npts);
+  
+	for (int deg = 0; deg <= 360; deg=deg+arc) {
+		double MX1 = major * Math.cos(DEG);
+		double MY1 = minor * Math.sin(DEG);
+		Pt pt = new Pt();
+		pt.lon = MX1 * MX2 + MY1 * MY2 + center.lon;
+		pt.lat = -MX1 * MY2 + MY1 * MX2 + center.lat;
+		pts.add(pt);
+	}
+
+	return pts;  
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Vector Arc(
+		Pt center,
+		double radius,
+		double angle1,
+		double angle2,
+		int direction,
+		ProjectionInfo info,
+		int npts) {
+
+	Pt pt;
+	Vector pts = new Vector();
+
+	int DEG = int(angle1);
+	int DEG2 = int(angle2);
+	int SIZE = int(angle2 - angle1);
+
+	if (DEG2 < DEG) {
+		DEG2 = DEG2 + 360;
+	}
+	  
+	switch (direction) {
+	case CLOCKWISE:
+		SIZE = (DEG2 - DEG) % 360;    
+		ARC = degreeStep(SIZE, npts);
+		break;
+	 
+	case COUNTER_CLOCKWISE:
+		DEG  = DEG + 360;
+		SIZE = (DEG - DEG2) % 360;    
+		ARC  = -degreeStep(SIZE, npts);
+		break;
+	}
+
+	for (int i = 0; i < npts; i++) {
+		pt = new Pt();
+		pt.lon = center.lon + radius * Math.cos(DEG);
+		pt.lat = center.lat + radius * Math.sin(DEG);
+		pts.add(pt);
+		DEG = DEG + ARC;
+
+		if (DEG > DEG2)
+			break;
+	}
+
+	pt = new Pt();	
+	pt.lon = center.lon + radius * Math.cos(DEG2);
+	pt.lat = center.lat + radius * Math.sin(DEG2);
+	pts.add(pt);
+}
+
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_MERCATOR (INFO         : in out PROJECTION_INFORMATION;
+	                      ORIGIN_LON   : DOUBLE;
+	                      ECCENTRICITY : DOUBLE;
+	                      RADIUS       : DOUBLE) is
+	                      
+  begin
+	
+	INFO.KIND         = NAVIGATION.MERCATOR;
+	INFO.X0           = ORIGIN_LON;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_MERCATOR");
+	  
+  end SET_MERCATOR;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -- Note: The Eccentricity and Standard Parrallel values
+  -- are not implemented in this version. The Formula assumes that
+  -- these two values are at thier defaults.
+  --
+  -----------------------------------------------------------------
+  
+  procedure MERCATOR_TO_XY (MERCATOR : POINT;
+	                        INFO     : in out PROJECTION_INFORMATION;
+	                        XY       : out POINT) is
+	
+	X1, X, Y, R1 : DOUBLE;
+	--
+	-- Coeffecients A thru C are on
+	-- Page 15 Formula 3-5.
+	--
+	A     : constant DOUBLE = 700.0420 * toRad / 3600.0;
+	B     : constant DOUBLE = 1.3859 * toRad / 3600.0;
+	C     : constant DOUBLE = 0.0037 * toRad / 3600.0;
+	
+  begin
+	--
+	--  o Formula 7-1, Self reversed.
+	--
+	X = MERCATOR.X * RAD_TO_DEG / INFO.RADIUS + INFO.X0;
+	
+	if X > 180.0 then
+	  X = X - 360.0;
+	elsif X < - 180.0 then
+	  X = X + 360.0;
+	end if;
+	
+	XY.X = X;
+	--
+	--  Formula 7-10, Page 44.
+	--
+	Y  = MERCATOR.Y; 
+	R1 = EXPONENTIAL (- (Y / INFO.RADIUS));
+	--
+	--  Formulas on Page 45, Formula 7-13
+	--
+	X1 = 2.0 * (PI_OVER_FOUR - ARC_TANGENT (R1));
+	--
+	-- General Form  : Page 19 Formula 3-34.
+	-- Specific Form : Page 15, Formula 3-6.
+	--
+	R1     = X1 + A * Math.sin (2.0 * X1) +
+	               B * Math.sin (4.0 * X1) + 
+	               C * Math.sin (6.0 * X1);
+	
+	XY.Y = R1 * RAD_TO_DEG;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("MERCATOR_TO_XY");
+	  raise ;
+	  
+  end MERCATOR_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_MERCATOR (XY       : POINT;
+	                        INFO     : in out PROJECTION_INFORMATION;
+	                        MERCATOR : out POINT) is
+	
+	A, B, X, Y : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X = (XY.X - INFO.X0) * toRad;
+	Y = XY.Y * toRad;
+	--
+	--  o See Page 41
+	--
+	if X < -PI then
+	   X = X + 2.0 * PI;
+	elsif X > PI then
+	   X = X - 2.0 * PI;
+	end if;
+	--
+	--  o Formula 7-7. Set B = 1, Reduces to
+	--    Spherical formulas. 
+	--
+	B = 1.0;    
+	if INFO.ECCENTRICITY /= 1.0 and then
+	   INFO.ECCENTRICITY /= 0.0 then
+	  B = INFO.ECCENTRICITY * Math.sin (Y);
+	  B = ((1.0 - B) / (1.0 + B)) ** (INFO.ECCENTRICITY / 2.0);
+	end if;
+	--
+	--  o Formula 7-2, 7-7
+	--
+	A = B * TANGENT (Y / 2.0 + PI_OVER_FOUR);
+
+	if A = 0.0 then
+	   null;   -- Problem.
+	else 
+	   MERCATOR.Y = LOGARITHM (A) * INFO.RADIUS;
+	end if;
+	--
+	--  o Formula 7-1.
+	--
+	MERCATOR.X = X * INFO.RADIUS;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_MERCATOR");
+	  raise ;
+	  
+  end XY_TO_MERCATOR;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_UTM (INFO         : in out PROJECTION_INFORMATION;
+	                 ORIGIN_LON   : DOUBLE;
+	                 ECCENTRICITY : DOUBLE;
+	                 RADIUS       : DOUBLE) is
+
+  begin
+	
+	INFO.KIND         = NAVIGATION.UTM;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = 0.0;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_UTM");
+	  
+  end SET_UTM;
+  ----------------------------------------------------------------
+  --
+  ----------------------------------------------------------------
+  
+  procedure SET_NAD27 (INFO   : in out PROJECTION_INFORMATION;
+	                   CENTER : POINT) is
+
+	E, R, F  : DOUBLE;
+	CM, ZONE : INT;
+   
+  begin
+	
+  ----------------------------------------------------------------
+  --  o Generate Origin
+  ----------------------------------------------------------------
+
+	ZONE = 30 - INT (CENTER.X / 6.0);
+	CM   = 183 - 6 * ZONE;
+
+  ----------------------------------------------------------------
+  --  o Generate Eccentricity and Flattening
+  ----------------------------------------------------------------
+  
+	R  = 6378206.4;
+	F  = 1.0 / 294.978698;
+	E  = F + F - F * F;
+
+	INFO.KIND         = NAVIGATION.UTM;
+	INFO.X0           = DOUBLE (CM);
+	INFO.Y0           = 0.0;
+	INFO.ECCENTRICITY = E;
+	INFO.RADIUS       = R;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_NAD27");
+	  
+  end SET_NAD27;
+  ----------------------------------------------------------------
+  --
+  ----------------------------------------------------------------
+  procedure SET_NAD83 (INFO   : in out PROJECTION_INFORMATION;
+	                   CENTER : POINT) is
+
+	E, R, F  : DOUBLE;
+	CM, ZONE : INT;
+   
+  begin
+	
+  ----------------------------------------------------------------
+  --  o Generate Origin
+  ----------------------------------------------------------------
+
+	ZONE = 30 - INT (CENTER.X / 6.0);
+	CM   = 183 - 6 * ZONE;
+
+  ----------------------------------------------------------------
+  --  o Generate Eccentricity and Flattening
+  ----------------------------------------------------------------
+ 
+	R  = 6378137.0;
+	F  = 1.0 / 298.257222101;
+	E  = F + F - F * F;
+   
+	INFO.KIND         = NAVIGATION.UTM;
+	INFO.X0           = DOUBLE (CM);
+	INFO.Y0           = 0.0;
+	INFO.ECCENTRICITY = E;
+	INFO.RADIUS       = R;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_NAD83");
+	  
+  end SET_NAD83;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  ----------------------------------------------------------------
+ 
+  procedure XY_TO_UTM (XY   : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   UTM  : out POINT) is
+
+	O        : POINT;
+	E, R, F  : DOUBLE;
+	CM, ZONE : INT;
+   
+  begin
+  ----------------------------------------------------------------
+  --  o Generate Origin
+  ----------------------------------------------------------------
+
+	ZONE = 30 - INT (XY.X / 6.0);
+	CM   = 183 - 6 * ZONE;
+	O.X = DOUBLE (CM);
+	O.Y = 0.0;
+
+  ----------------------------------------------------------------
+  --  o Generate Eccentricity and Flattening
+  ----------------------------------------------------------------
+	--
+	--  o NAD 27
+	--
+	R  = 6378206.4;
+	F  = 1.0 / 294.978698;
+	E  = F + F - F * F;
+	--
+	--  o NAD 83
+	--
+	R  = 6378137.0;
+	F  = 1.0 / 298.257222101;
+	E  = F + F - F * F;
+  ----------------------------------------------------------------
+  --  o Project to Transverse Mercator
+  ----------------------------------------------------------------
+  
+   NAVIGATION.SET_TM (INFO, O.Y, O.X, E, R);
+
+   NAVIGATION.PROJECTION (XY, INFO, UTM);
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_UTM");
+	  raise ;
+	  
+  end XY_TO_UTM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  ----------------------------------------------------------------
+ 
+  procedure UTM_TO_XY (UTM  : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   XY   : out POINT) is
+
+	O        : POINT;
+	E, R, F  : DOUBLE;
+	CM, ZONE : INT;
+   
+  begin
+  ----------------------------------------------------------------
+  --  o Generate Origin
+  ----------------------------------------------------------------
+
+	ZONE = 30 - INT (INFO.X0 / 6.0);
+	CM   = 183 - 6 * ZONE;
+	O.X = DOUBLE (CM);
+	O.Y = 0.0;
+
+  ----------------------------------------------------------------
+  --  o Generate Eccentricity and Flattening
+  ----------------------------------------------------------------
+	--
+	--  o NAD 27
+	--
+	R  = 6378206.4;
+	F  = 1.0 / 294.978698;
+	E  = F + F - F * F;
+	--
+	--  o NAD 83
+	--
+	R  = 6378137.0;
+	F  = 1.0 / 298.257222101;
+	E  = F + F - F * F;
+  ----------------------------------------------------------------
+  --  o Project to Transverse Mercator
+  ----------------------------------------------------------------
+  
+   NAVIGATION.SET_TM (INFO, O.Y, O.X, E, R);
+
+   NAVIGATION.XY (UTM, INFO, XY);
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("UTM_TO_XY");
+	  raise ;
+	  
+  end UTM_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --
+  -- Example: 
+  --     32U LA 1234 1234
+  --
+  -----------------------------------------------------------------
+
+  procedure UTM_TO_TM (UTM : STRING; TM  : out POINT) is
+	
+	LON_GRID_1 : INTEGER;
+	LON_GRID_2 : INTEGER;
+	LON_GRID_3 : INTEGER;
+	
+	LAT_GRID_1 : INTEGER;
+	LAT_GRID_2 : INTEGER;
+	LAT_GRID_3 : INTEGER;
+	
+	LAT, LON   : DOUBLE;
+	
+	POINTER1   : INTEGER;
+	POINTER2   : INTEGER;
+	SIZE       : INTEGER;
+	
+  begin
+	--
+	-- Pull out Longitude Grid Designator 1.
+	--
+	POINTER1 = UTM'FIRST;
+	for INDEX in POINTER1 .. UTM'LAST loop
+	  if UTM (INDEX) in '0' .. '9' then
+	    POINTER2 = INDEX;
+	  else
+	    exit ;
+	  end if;
+	end loop;
+	
+	LON_GRID_1 = INTEGER'VALUE (UTM (POINTER1 .. POINTER2));
+	--
+	-- Pull out Latitude Grid Designator 1.
+	--
+	POINTER1   = POINTER2 + 1;
+	LAT_GRID_1 = CHARACTER'POS (UTM (POINTER1)) - CHARACTER'POS ('A');
+	--
+	-- Pull out Longitude Grid Designator 2.
+	--
+	POINTER1   = POINTER1 + 1;
+	LON_GRID_2 = CHARACTER'POS (UTM (POINTER1)) - CHARACTER'POS ('A');
+	--
+	-- Pull out Latitude Grid Designator 2.
+	--
+	POINTER1   = POINTER1 + 1;
+	LAT_GRID_2 = CHARACTER'POS (UTM (POINTER1)) - CHARACTER'POS ('A');
+	--
+	-- Determine Depth of Designator 3.
+	--
+	POINTER1   = POINTER1 + 1;
+	SIZE       = UTM'LAST - POINTER1 + 1;
+	
+	if (SIZE mod 2) = 1 then
+	  EXCEPTION_HANDLER ("UTM_TO_TM.STRING SIZE ERROR");
+	end if;
+	
+	SIZE       = SIZE / 2;
+	--
+	-- Pull out Longitude Grid Designator 3.
+	--
+	POINTER2   = POINTER1 + SIZE - 1;
+	LON_GRID_3 = INTEGER'VALUE (UTM (POINTER1 .. POINTER2));
+	--
+	-- Pull out Latitude Grid Designator 3.
+	--
+	POINTER1   = POINTER2 + 1;
+	POINTER2   = UTM'LAST;
+	LAT_GRID_3 = INTEGER'VALUE (UTM (POINTER1 .. POINTER2));
+	--
+	-- Deal with Polar Regions.
+	--
+	if not (LAT_GRID_1 in 2 .. 23) then
+	  EXCEPTION_HANDLER ("UTM_TO_TM.OUTSIDE_CENTRAL_REGION_ERROR.");
+	end if;
+	--
+	-- Determine the Zone Origin
+	--
+	if LAT_GRID_1 > 7 then
+	  LAT_GRID_1 = LAT_GRID_1 - 1;
+	  if LAT_GRID_1 > 12 then
+	    LAT_GRID_1 = LAT_GRID_1 - 1;
+	  end if;
+	end if;
+	
+	if LAT_GRID_1 > 2 and LAT_GRID_1 < 21 then
+	  LAT = DOUBLE ((LAT_GRID_1 - 2) * 8 - 72);
+	else
+	  LAT = DOUBLE ((LAT_GRID_1 - 2) * 8 - 84);
+	end if;
+	
+	LON = DOUBLE (((LON_GRID_1 - 1) * 6) - 177);
+	--
+	-- Special Cases.
+	--
+	if LON = 3.0 and then LAT = 56.0 then
+	  LON = 1.5;
+	elsif LON = 9.0 and then LAT = 56.0 then
+	  LON = 7.5;
+	elsif LON = 3.0 and then LAT = 72.0 then
+	  LON = 4.5;
+	elsif LON = 9.0 and then LAT = 72.0 then
+	  LON = 4.5;
+	elsif LON = 15.0 and then LAT = 72.0 then
+	  LON = 15.0;
+	elsif LON = 21.0 and then LAT = 72.0 then
+	  LON = 15.0;
+	elsif LON = 27.0 and then LAT = 72.0 then
+	  LON = 27.0;
+	elsif LON = 33.0 and then LAT = 72.0 then
+	  LON = 27.0;
+	elsif LON = 39.0 and then LAT = 72.0 then
+	  LON = 37.5;
+	end if;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("UTM_TO_TM");
+	  raise ;
+	  
+  end UTM_TO_TM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --
+  -- Example: 
+  --     32U LA 1234 1234
+  --
+  -----------------------------------------------------------------
+
+  procedure TM_TO_UTM (TM  : POINT; UTM : out STRING; LAST : out INTEGER) is
+
+  begin
+
+	 null;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("TM_TO_UTM");
+	  raise ;
+	  
+  end TM_TO_UTM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_TM (INFO         : in out PROJECTION_INFORMATION;
+	                ORIGIN_LAT   : DOUBLE;
+	                ORIGIN_LON   : DOUBLE;
+	                ECCENTRICITY : DOUBLE;
+	                RADIUS       : DOUBLE) is
+
+  begin
+	
+	INFO.KIND         = NAVIGATION.TM;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_TM");
+	  
+  end SET_TM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_TM (XY   : POINT;
+	                  INFO : in out PROJECTION_INFORMATION;
+	                  TM   : out POINT) is
+	
+	C1, C2, C3                : DOUBLE;
+	Z1, Z2, Z3, Z4            : DOUBLE;
+	EP2, E2             : DOUBLE;
+	X, Y, X0, Y0, R0          : DOUBLE;
+	SIN_Y, TAN_Y, COS_Y : DOUBLE;
+	N, T, C, A, M, K, M0      : DOUBLE;
+	
+	M1 : constant DOUBLE = 111_132.0894;
+	M2 : constant DOUBLE = 16_216.94;
+	M3 : constant DOUBLE = 17.21;
+	M4 : constant DOUBLE = 0.2;
+	MR : constant DOUBLE = 6_367_399.7;
+	K0 : constant DOUBLE = 0.9996;
+	
+  begin
+	--
+	--  o Convert Degree Values to Radians
+	--
+	Y         = XY.Y * toRad;
+	X         = XY.X * toRad;
+	Y0        = INFO.Y0 * toRad;
+	X0        = INFO.X0 * toRad;
+	--
+	-- Sine of the Latitude
+	--
+	SIN_Y = Math.sin (Y);
+	--
+	-- Calculate EP2
+	--
+	E2  = INFO.ECCENTRICITY * INFO.ECCENTRICITY;
+	EP2 = E2 / (1.0 - E2);
+	--
+	-- Calculate N
+	--
+	N         = INFO.RADIUS / (1.0 - E2 * SIN_Y * SIN_Y) ** 0.5;
+	--
+	-- Calculate T
+	--
+	TAN_Y = TANGENT (Y);
+	T         = TAN_Y * TAN_Y;
+	--
+	-- Calculate C.
+	--
+	COS_Y = Math.cos (Y);
+	C       = EP2 * COS_Y * COS_Y;
+	--
+	-- Calculate A
+	--
+	A         = (X - X0) * COS_Y;
+	--
+	-- Calculate M
+	--
+	Z2 = Math.sin (Y * 2.0);
+	Z3 = Math.sin (Y * 4.0);
+	Z4 = Math.sin (Y * 6.0);
+	
+	M         = M1 * XY.Y - M2 * Z2 + M3 * Z3 - M4 * Z4;
+	--
+	-- Calculate M0
+	-- Formula 3-22 page 17.
+	--
+	Z2 = Math.sin (Y0 * 2.0);
+	Z3 = Math.sin (Y0 * 4.0);
+	Z4 = Math.sin (Y0 * 6.0);
+	
+	M0        = M1 * INFO.Y0 - M2 * Z2 + M3 * Z3 - M4 * Z4;
+	--
+	-- Calculate K
+	--
+	C1        = 1.0 + C;
+	C2        = 5.0 - 4.0 * T + 42.0 * C + 13.0 * C * C - 28.0 * EP2;
+	C3        = 61.0 - 148.0 * T + 16.0 * T * T;
+	
+	Z1        = A * A / 2.0;
+	Z2        = A * A * A * A / 24.0;
+	Z3        = A * A * A * A * A * A / 720.0;
+	
+	K         = K0 * (1.0 + C1 * Z1 + C2 * Z2 + C3 * Z3);
+	--
+	-- Calulate X (Longitude).
+	--
+	C1        = 1.0 - T + C;
+	C2        = 5.0 - 18.0 * T + T * T + 72.0 * C - 58.0 * EP2;
+	
+	Z1        = A * A * A / 6.0;
+	Z2        = A * A * A * A * A / 120.0;
+	
+	R0        = A + C1 * Z1 + C2 * Z2;
+	
+	TM.X    = K0 * N * R0;
+	--
+	--
+	--
+	C2        = 5.0 - T + 9.0 * C + 4.0 * C * C;
+	C3        = 61.0 - 58.0 * T + T * T + 600.0 * C - 330.0 * EP2;
+	
+	Z1        = A * A / 2.0;
+	Z2        = A * A * A * A / 24.0;
+	Z3        = A * A * A * A * A * A / 720.0;
+	
+	R0        = Z1 + C2 * Z2 + C3 * Z3;
+	
+	TM.Y    = K0 * (M - M0 + N * TAN_Y * R0);
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER (" XY_TO_TM");
+	  raise ;
+	  
+  end XY_TO_TM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -- Note: The Eccentricity and Standard Parrallel values
+  -- are not implemented in this version. The Formula assumes that
+  -- these two values are at thier defaults.
+  -----------------------------------------------------------------
+  
+  procedure TM_TO_XY (TM   : POINT;
+	                  INFO : in out PROJECTION_INFORMATION;
+	                  XY   : out POINT) is
+	
+	E_PRIME_2, E2            : DOUBLE;
+	Y0, R0                   : DOUBLE;
+	E1, C1, T1, N1, R1       : DOUBLE;
+	U, D, S                  : DOUBLE;
+	THETA_1, TAN_THETA_1     : DOUBLE;
+	COS_THETA_1, SIN_THETA_1 : DOUBLE;
+	Z1, Z2, Z3, Z4           : DOUBLE;
+	A0, A1, A2, A3           : DOUBLE;
+	M0, M                    : DOUBLE;
+	
+	M1 : constant DOUBLE = 111_132.0894;
+	M2 : constant DOUBLE = 16_216.94;
+	M3 : constant DOUBLE = 17.21;
+	M4 : constant DOUBLE = 0.2;
+	MR : constant DOUBLE = 6_367_399.7;
+	K0 : constant DOUBLE = 0.9996;
+	
+  begin
+	--
+	--  o Origin
+	--
+	Y0        = INFO.Y0 * toRad;
+	--
+	-- Calculate E_PRIME_2
+	--
+	E2        = INFO.ECCENTRICITY * INFO.ECCENTRICITY;
+	E_PRIME_2 = E2 / (1.0 - E2);
+	--
+	-- Calculate M0
+	--
+	Z2 = Math.sin (Y0 * 2.0);
+	Z3 = Math.sin (Y0 * 4.0);
+	Z4 = Math.sin (Y0 * 6.0);
+	
+	M0        = M1 * INFO.Y0 - M2 * Z2 + M3 * Z3 - M4 * Z4;
+	--
+	-- Calculate M
+	--
+	M         = M0 + TM.Y / K0;
+	--
+	-- Calculate E1
+	--
+	S         = (1.0 - E2) ** 0.5;
+	E1        = (1.0 - S) / (1.0 + S);
+	--
+	-- Calculate U
+	--
+	R0 = 1.0 - 0.25 * E2 - 3.0 * E2 * E2 / 64.0 - 5.0 * E2 * E2 * E2 / 256.0;
+	U         = M / (INFO.RADIUS * R0);
+	--
+	-- Calculate Theta_1
+	--
+	Z1        = 1.5 * E1 - 27.0 * E1 * E1 * E1 / 32.0;
+	Z2        = 21.0 * E1 * E1 / 16.0 - 55.0 * E1 * E1 * E1 * E1 / 32.0;
+	Z3        = 151.0 * E1 * E1 * E1 / 96.0;
+	
+	THETA_1   = U + Z1 * Math.sin (2.0 * U) + Z2 * Math.sin (4.0 * U) + 
+	           Z3 * Math.sin (6.0 * U);
+	--
+	-- Trig Values of THETA_1
+	--
+	COS_THETA_1 = Math.cos (THETA_1);
+	SIN_THETA_1 = Math.sin (THETA_1);
+	TAN_THETA_1 = TANGENT (THETA_1);
+	--
+	-- Calculate C1
+	--
+	C1        = E_PRIME_2 * COS_THETA_1 * COS_THETA_1;
+	--
+	-- Calculate T1
+	--
+	T1        = TAN_THETA_1 * TAN_THETA_1;
+	--
+	-- Calculate N1
+	--
+	R0        = 1.0 - E_PRIME_2 * SIN_THETA_1 * SIN_THETA_1;
+	N1        = INFO.RADIUS / R0 ** 0.5;
+	--
+	-- Calculate R1
+	--
+	R1        = INFO.RADIUS * (1.0 - E_PRIME_2) / R0 ** 1.5;
+	--
+	-- Calculate D
+	--
+	D         = TM.X / (N1 * K0);
+	--
+	-- Calculate Latitude.
+	--
+	Z1        = 5.0 + 3.0 * T1 + 10.0 * C1 - 4.0 * C1 * C1 - 9.0 * E_PRIME_2;
+	Z2 = 61.0 + 90.0 * T1 + 298.0 * C1 + 45.0 * T1 * T1 - 252.0 * E_PRIME_2 - 
+	      3.0 * C1 * C1;
+	
+	A0        = N1 * TAN_THETA_1 / R1;
+	A1        = D * D / 2.0;
+	A2        = D * D * D * D / 24.0;
+	A3        = D * D * D * D * D * D / 720.0;
+	
+	XY.Y    = (THETA_1 - A0 * (A1 - Z1 * A2 + Z2 * A3)) * RAD_TO_DEG;
+	--
+	-- Calculate Longitude
+	--
+	Z1        = 1.0 + 2.0 * T1 + C1;
+	Z2        = 5.0 - 2.0 * C1 + 28.0 * T1 - 3.0 * C1 * C1 + 8.0 * E_PRIME_2 + 
+	      24.0 * T1 * T1;
+	
+	A1        = D * D * D / 6.0;
+	A2        = D * D * D * D * D / 120.0;
+	
+	R0        = (D - Z1 * A1 + Z2 * A2) / COS_THETA_1;
+	
+	XY.X    = INFO.X0 + R0 * RAD_TO_DEG;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("TM_TO_XY");
+	  raise ;
+	  
+  end TM_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_AZIMUTHAL
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.AZIMUTHAL_EQUIDISTANT;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_AZIMUTHAL");
+	  
+  end SET_AZIMUTHAL;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --  Note: All Formulas are from Page 195 of the USGS Manual.
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_AZIMUTHAL (XY        : POINT;
+	                         INFO      : in out PROJECTION_INFORMATION;
+	                         AZIMUTHAL : out POINT) is
+	
+	X, Y, SP1, R : DOUBLE;
+	K, C, RX, RY : DOUBLE;
+	
+  begin
+	-- 
+	--  o Convert degree values to radians.
+	-- 
+	Y   = XY.Y * toRad;
+	X   = (XY.X - INFO.X0) * toRad;
+	SP1 = INFO.SP1 * toRad;
+	-- 
+	--  o Formula 5-3. See also paragraph following
+	--    formulas. R refers to Math.sin (C).
+	-- 
+	C = Math.sin (SP1) * Math.sin (Y) + 
+	     Math.cos (SP1) * Math.cos (Y) * Math.cos (X);
+	  
+	C = ARC_Math.cos (C);
+	  
+	R = Math.sin (C);
+	--
+	--  o Formula 25-2.
+	--
+	if R /= 0.0 then
+	   K = C / R;
+	else
+	   K = 1.0;
+	end if;
+	-- 
+	--  o Formula 22-4, 22-5.
+	-- 
+	RX = Math.cos (Y) * Math.sin (X);
+	
+	RY = Math.cos (SP1) * Math.sin (Y) - 
+	      Math.sin (SP1) * Math.cos (Y) * Math.cos (X);
+	-- 
+	--  o Formula 22-4, 22-5.
+	-- 
+	AZIMUTHAL.Y = INFO.RADIUS * RY * K;
+	AZIMUTHAL.X = INFO.RADIUS * RX * K;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_AZIMUTHAL");
+	  raise ;
+	  
+  end XY_TO_AZIMUTHAL;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure AZIMUTHAL_TO_XY (AZIMUTHAL : POINT;
+	                         INFO      : in out PROJECTION_INFORMATION;
+	                         XY        : out POINT) is
+	
+	X, Y, SP1 : DOUBLE;
+	K, RX, RY : DOUBLE;
+	RN, RD, P, C  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert to Radians
+	-- 
+	Y   = AZIMUTHAL.Y;
+	X   = AZIMUTHAL.X;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 20-18.
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 25-15.
+	-- 
+	C = P / INFO.RADIUS;
+	--
+	--  o Formula 20-14
+	--
+	RY     =  Math.cos (C) * Math.sin (SP1) +
+	           Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	if RX > 180.0 then
+	   RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	   RX = RX + 360.0;
+	end if;
+   
+	XY.X = RX; 
+	
+  exception
+	when ERROR =>
+	  null;
+	when others =>
+	  EXCEPTION_HANDLER ("AZIMUTHAL_TO_XY");
+	  raise ;
+	  
+  end AZIMUTHAL_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_GENERAL
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE;
+	             P_DISTANCE   : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.GENERAL;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.P0           = P_DISTANCE;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_GENERAL");
+	  
+  end SET_GENERAL;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --  Note: All Formulas are from Page 173 of the USGS Manual.
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_GENERAL (XY        : POINT;
+	                       INFO      : in out PROJECTION_INFORMATION;
+	                       GENERAL : out POINT) is
+	
+	X, Y, SP1   : DOUBLE;
+	P0, K, C, RY : DOUBLE;
+ 
+  begin
+	-- 
+	--  o Convert degree values to radians.
+	-- 
+	Y   = XY.Y * toRad;
+	X   = (XY.X - INFO.X0) * toRad;
+	SP1 = INFO.SP1 * toRad;
+	P0  = INFO.P0 / INFO.RADIUS;
+	-- 
+	--  o Formula 5-3. See also paragraph following
+	--    formulas.
+	-- 
+	C = Math.sin (SP1) * Math.sin (Y) + 
+	     Math.cos (SP1) * Math.cos (Y) * Math.cos (X);
+	--
+	--  o Formula 23-3.
+	--
+	K = (P0 - 1.0) / (P0 - C);
+	-- 
+	--  o Formula 22-4.
+	-- 
+	GENERAL.X = INFO.RADIUS * K * Math.cos (Y) * Math.sin (X);
+	--
+	--  o Formula 22-5. 
+	--
+	RY = Math.cos (SP1) * Math.sin (Y) - 
+	      Math.sin (SP1) * Math.cos (Y) * Math.cos (X);
+
+	GENERAL.Y = INFO.RADIUS * K * RY;
+
+	println (" -- XY_TO_GENERAL ---------- ");
+	println ("X  ", X);
+	println ("Y  ", Y);
+	println ("SP1", SP1);
+	println ("P0 ", P0);
+	println ("C  ", C);
+	println ("K  ", K);
+	println ("RY ", RY);
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_GENERAL");
+	  raise ;
+	  
+  end XY_TO_GENERAL;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure GENERAL_TO_XY (GENERAL : POINT;
+	                         INFO      : in out PROJECTION_INFORMATION;
+	                         XY        : out POINT) is
+	
+	X, Y, SP1 : DOUBLE;
+	K, RX, RY : DOUBLE;
+	P0, RN, RD, P, C  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert to Radians
+	-- 
+	Y   = GENERAL.Y / INFO.RADIUS;
+	X   = GENERAL.X / INFO.RADIUS;
+	SP1 = INFO.SP1 * toRad;
+	P0  = INFO.P0 / INFO.RADIUS;
+	--
+	--  o Formula 20-18.
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 23-4
+	-- 
+	RN = P0 - SQUARE_ROOT (1.0 - P * P * (P0 + 1.0) / (P0 - 1.0));
+
+	RD = ((P0 - 1.0) / P) + (P / (P0 - 1.0));
+
+	C = ARC_Math.sin (RN / RD);
+	--
+	--  o Formula 20-14
+	--
+	RY     =  Math.cos (C) * Math.sin (SP1) +
+	           Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	XY.X = RX; 
+	
+  exception
+	when ERROR =>
+	  null;
+	when others =>
+	  EXCEPTION_HANDLER ("GENERAL_TO_XY");
+	  raise ;
+	  
+  end GENERAL_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_WGS84 (XY        : POINT;
+	                     INFO      : in out PROJECTION_INFORMATION;
+	                     WGS : out POINT) is
+
+	FLAG : POLAR_FLAG = NON_POLAR;
+
+  begin
+
+	case FLAG is
+	  when NORTH_POLE =>
+	    NAVIGATION.XY_TO_AZIMUTHAL (XY, INFO, WGS);
+	  when SOUTH_POLE => null;
+	    NAVIGATION.XY_TO_AZIMUTHAL (XY, INFO, WGS);
+	  when NON_POLAR  => 
+	    NAVIGATION.XY_TO_EC (XY, INFO, WGS);
+	end case;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_WGS84");
+	  raise ;
+	  
+  end XY_TO_WGS84;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --
+  -----------------------------------------------------------------
+  
+  procedure WGS84_TO_XY (WGS  : POINT;
+	                     INFO : in out PROJECTION_INFORMATION;
+	                     XY   : out POINT) is
+   
+	FLAG : POLAR_FLAG = NON_POLAR;
+	
+  begin
+
+	case FLAG is
+	  when NORTH_POLE => 
+	    NAVIGATION.AZIMUTHAL_TO_XY (WGS, INFO, XY); 
+	  when SOUTH_POLE =>
+	    NAVIGATION.AZIMUTHAL_TO_XY (WGS, INFO, XY); 
+	  when NON_POLAR  =>
+	    NAVIGATION.EC_TO_XY (WGS, INFO, XY); 
+	end case;
+  
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("WGS84_TO_XY");
+	  raise ;
+	  
+  end WGS84_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_EC
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.EC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_EC");
+	  
+  end SET_EC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --  Note:  All Formula are from Page 91 of USGS Manual.
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_EC (XY   : POINT;
+	                  INFO : in out PROJECTION_INFORMATION;
+	                  EC   : out POINT) is
+	
+	X, Y, SP, RX, RY : DOUBLE;
+	
+  begin
+	--
+	--  o Formula 12-2.
+	--
+	RY = XY.Y * toRad;
+	--
+	--  o See paragraph on page 91.
+	--
+	RX     = XY.X - INFO.X0;
+	
+	if RX > 180.0 then
+	  RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	  RX = RX + 360.0;
+	end if;
+	--
+	--  o Formula 12-1
+	-- 
+	RX = RX * toRad * Math.cos (INFO.SP1 * toRad);
+	
+	EC.Y = RY * WGS84_B;
+	EC.X = RX * WGS84_A;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_EC");
+	  raise ;
+	  
+  end XY_TO_EC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  --  Note:  All Formula are from Page 91 of USGS Manual.
+  --
+  -----------------------------------------------------------------
+  
+  procedure EC_TO_XY (EC   : POINT;
+	                  INFO : in out PROJECTION_INFORMATION;
+	                  XY   : out POINT) is
+	
+	R0, RX, RY : DOUBLE;
+	
+  begin
+
+	RX = EC.X / WGS84_A;
+	RY = EC.Y / WGS84_B;
+	--
+	--  o Formula 12-5
+	--
+	XY.Y = RY * RAD_TO_DEG;
+	--
+	--  o Formula 12-6.
+	-- 
+	R0 = Math.cos (INFO.SP1 * toRad);
+	
+	R0 = INFO.X0 + (RX / R0) * RAD_TO_DEG;
+	
+	if R0 > 180.0 then
+	  R0 = R0 - 360.0;
+	elsif R0 < - 180.0 then
+	  R0 = R0 + 360.0;
+	end if;
+	
+	XY.X = R0;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("EC_TO_XY");
+	  raise ;
+	  
+  end EC_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_AEA
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.AEA;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_AEA");
+	  
+  end SET_AEA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_AEA (XY        : POINT;
+	                   INFO      : in out PROJECTION_INFORMATION;
+	                   AZIMUTHAL : out POINT) is
+	
+	X, Y, SP1, R0, RX, RY, K : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	-- 
+	Y   = toRad * XY.Y;
+	X   = toRad * (XY.X - INFO.X0);
+	SP1 = toRad * INFO.SP1;
+	--
+	--  o Formula 24-2
+	--
+	R0 = 1.0 + Math.sin (SP1) * Math.sin (Y) + 
+	      Math.cos (SP1) * Math.cos (Y) * Math.cos (X);
+
+	K = SQUARE_ROOT (2.0 / R0);
+	--
+	--  o Formula 22-4
+	--
+	RX = Math.cos (Y) * Math.sin (X);
+	AZIMUTHAL.X = INFO.RADIUS * K *RX;
+	--
+	--  o Formula 22-5
+	--
+	RY = Math.cos (SP1) * Math.sin (Y) - 
+	      Math.sin (SP1) * Math.cos (Y) * Math.cos (X);
+	
+	AZIMUTHAL.Y = INFO.RADIUS * K * RY;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_AEA");
+	  raise ;
+	  
+  end XY_TO_AEA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure AEA_TO_XY (AZIMUTHAL : POINT;
+	                   INFO      : in out PROJECTION_INFORMATION;
+	                   XY        : out POINT) is
+ 
+	X, Y, SP1 : DOUBLE;
+	K, RX, RY : DOUBLE;
+	RN, RD, P, C  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert to Radians
+	-- 
+	Y   = AZIMUTHAL.Y;
+	X   = AZIMUTHAL.X;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 20-18.
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 24-16
+	-- 
+	C = 2.0 * ARC_Math.sin (P / (2.0 * INFO.RADIUS));
+	--
+	--  o Formula 20-14
+	--
+	RY     =  Math.cos (C) * Math.sin (SP1) +
+	           Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	if RX > 180.0 then
+	   RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	   RX = RX + 360.0;
+	end if;
+   
+	XY.X = RX; 
+	
+  exception
+	when ERROR =>
+	  null;
+	when others =>
+	  EXCEPTION_HANDLER ("AEA_TO_XY");
+	  raise ;
+	  
+  end AEA_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_ORTHO
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.ORTHOGRAPHIC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_ORTHO");
+	  
+  end SET_ORTHO;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_ORTHO (XY           : POINT;
+	                     INFO         : in out PROJECTION_INFORMATION;
+	                     ORTHOGRAPHIC : out POINT) is
+	
+	X, Y, RY, SP : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	-- 
+	Y  = toRad * XY.Y;
+	X  = toRad * (XY.X - INFO.X0);
+	SP = toRad * INFO.SP1;
+	--
+	--  o Formula 20-3
+	-- 
+	ORTHOGRAPHIC.X = INFO.RADIUS * Math.cos (Y) * Math.sin (X);
+	--
+	--  o Formula 20-4
+	-- 
+	RY = Math.cos (SP) * Math.sin (Y) - 
+	      Math.sin (SP) * Math.cos (Y) * Math.cos (X);
+
+	ORTHOGRAPHIC.Y = RY * INFO.RADIUS;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_ORTHO");
+	  raise ;
+	  
+  end XY_TO_ORTHO;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure ORTHO_TO_XY (ORTHOGRAPHIC : POINT;
+	                     INFO         : in out PROJECTION_INFORMATION;
+	                     XY           : out POINT) is
+	
+	X, Y, C, P, RY, RX, RN, RD, SP1  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians 
+	--
+	Y   = ORTHOGRAPHIC.Y;
+	X   = ORTHOGRAPHIC.X;
+	SP1 = INFO.SP1 * toRad; 
+	--
+	--  o Formula 20-18
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 20-19
+	--
+	C = ARC_Math.sin (P / INFO.RADIUS);
+	--
+	--  o Formula 20-14
+	--
+	RY =  Math.cos (C) * Math.sin (SP1) +
+	       Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	if RX > 180.0 then
+	   RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	   RX = RX + 360.0;
+	end if;
+   
+	XY.X = RX; 
+   
+  exception
+	when ERROR =>
+	  null;
+	when others =>
+	  EXCEPTION_HANDLER ("ORTHO_TO_XY");
+	  raise ;
+	  
+  end ORTHO_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_STEREO
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.STEREOGRAPHIC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_STEREO");
+	  
+  end SET_STEREO;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_STEREO (XY    : POINT;
+	                     INFO   : in out PROJECTION_INFORMATION;
+	                     STEREO : out POINT) is
+	
+	X, Y, RY, SP, R0, K : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	-- 
+	Y  = toRad * XY.Y;
+	X  = toRad * (XY.X - INFO.X0);
+	SP = toRad * INFO.SP1;
+	--
+	--  o Formula 21-4
+	--
+	R0 = 1.0 + Math.sin (SP) * Math.sin (Y) +
+	      Math.cos (SP) * Math.cos (Y) * Math.cos (X);
+
+	K = 2.0 * INFO.K0 / R0;
+	--
+	--  o Formula 21-2
+	-- 
+	STEREO.X = INFO.RADIUS * K * Math.cos (Y) * Math.sin (X);
+	--
+	--  o Formula 21-3
+	-- 
+	RY = Math.cos (SP) * Math.sin (Y) - 
+	      Math.sin (SP) * Math.cos (Y) * Math.cos (X);
+
+	STEREO.Y =INFO.RADIUS * K * RY;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_STEREO");
+	  raise ;
+	  
+  end XY_TO_STEREO;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure STEREO_TO_XY (STEREO : POINT;
+	                     INFO         : in out PROJECTION_INFORMATION;
+	                     XY           : out POINT) is
+	
+	X, Y, C, P, RY, RX, RN, RD, SP1  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians 
+	--
+	Y   = STEREO.Y;
+	X   = STEREO.X;
+	SP1 = INFO.SP1 * toRad; 
+	--
+	--  o Formula 20-18
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 21-15, Denominator always positive.
+	--
+	C = 2.0 * ARC_TANGENT (P / (2.0 * INFO.RADIUS * INFO.K0));
+	--
+	--  o Formula 20-14
+	--
+	RY =  Math.cos (C) * Math.sin (SP1) +
+	       Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	if RX > 180.0 then
+	   RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	   RX = RX + 360.0;
+	end if;
+   
+	XY.X = RX; 
+   
+  exception
+	when ERROR =>
+	  null;
+	when others =>
+	  EXCEPTION_HANDLER ("STEREO_TO_XY");
+	  raise ;
+	  
+  end STEREO_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_GNOMONIC
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.GNOMONIC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_GNOMONIC");
+	  
+  end SET_GNOMONIC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_GNOMONIC (XY       : POINT;
+	                        INFO     : in out PROJECTION_INFORMATION;
+	                        GNOMONIC : out POINT) is
+	
+	X, Y, SP, RX, RY, K, C : DOUBLE;
+	
+  begin
+	-- 
+	--  o Convert Degrees to rad.
+	--    
+	Y  = toRad * XY.Y;
+	X  = toRad * (XY.X - INFO.X0);
+	SP = toRad * INFO.SP1;
+	--
+	--  o Formula 5-3.
+	--
+	C = Math.sin (SP) * Math.sin (Y) +
+	     Math.cos (SP) * Math.cos (Y) * Math.cos (X);
+	--
+	--  o Formula 22-3
+	--
+	K = 1.0 / C;
+	--
+	--  o Formula 22-4.
+	--
+	RX = Math.cos (Y) * Math.sin (X);
+	
+	GNOMONIC.X = INFO.RADIUS * K * RX;
+	--
+	--  o Formula 22-5.
+	--
+	RY = Math.cos (SP) * Math.sin (Y) - 
+	      Math.sin (SP) * Math.cos (Y) * Math.cos (X);
+	
+	GNOMONIC.Y = INFO.RADIUS * K * RY;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_GNOMONIC");
+	  raise ;
+	  
+  end XY_TO_GNOMONIC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure GNOMONIC_TO_XY (GNOMONIC : POINT;
+	                        INFO     : in out PROJECTION_INFORMATION;
+	                        XY       : out POINT) is
+ 
+	X, Y, SP1 : DOUBLE;
+	K, RX, RY : DOUBLE;
+	RN, RD, P, C  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert to Radians
+	-- 
+	Y   = GNOMONIC.Y;
+	X   = GNOMONIC.X;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 20-18.
+	-- 
+	P = SQUARE_ROOT (SQUARE (X) + SQUARE (Y));
+	--
+	--
+	--
+	if P = 0.0 then
+	   XY.Y = INFO.SP1;
+	   XY.X = INFO.X0;
+	   raise ERROR;
+	end if;
+	--
+	--  o Formula 22-16.
+	-- 
+	C = ARC_TANGENT (P / INFO.RADIUS);
+	--
+	--  o Formula 20-14
+	--
+	RY     =  Math.cos (C) * Math.sin (SP1) +
+	           Y * Math.sin (C) * Math.cos (SP1) / P;
+
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG; 
+	--
+	--  o Formula 20-15
+	--
+	RD = P * Math.cos (SP1) * Math.cos (C) -
+	      Y * Math.sin (SP1) * Math.sin(C);
+
+	RN = X * Math.sin (C);
+	--
+	--  o Common portion of formulas 20-15, 20-16, and 20-17.
+	--
+	RX = INFO.X0 + ARC_TANGENT2 (RN, RD) * RAD_TO_DEG;
+
+	if RX > 180.0 then
+	   RX = RX - 360.0;
+	elsif RX < - 180.0 then
+	   RX = RX + 360.0;
+	end if;
+   
+	XY.X = RX; 
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("GNOMONIC_TO_XY");
+	  raise ;
+	  
+  end GNOMONIC_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_ALBERS
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT   : DOUBLE;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             PARALLEL_2   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+	
+  begin
+	
+	INFO.KIND         = NAVIGATION.ALBERS;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.SP1          = PARALLEL_1;
+	INFO.SP2          = PARALLEL_2;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_ALBERS");
+	  
+  end SET_ALBERS;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -- Note: The Eccentricity and Standard Parrallel values
+  -- are not implemented in this version. The Formula assumes that
+  -- these two values are at thier defaults.
+  --
+  -----------------------------------------------------------------
+  
+  procedure ALBERS_TO_XY (ALBERS : POINT;
+	                      INFO     : in out PROJECTION_INFORMATION;
+	                      XY       : out POINT) is
+	
+	X, Y, Y0 : DOUBLE;
+	R0, SP1, SP2, P, N, C, P0, XT  : DOUBLE;
+  
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X   = ALBERS.X;
+	Y   = ALBERS.Y;
+	Y0  = INFO.Y0 * toRad;
+	SP1 = INFO.SP1 * toRad;
+	SP2 = INFO.SP2 * toRad;
+	--
+	--  o Formula 14-6.
+	--
+	N = (Math.sin (SP1) + Math.sin (SP2)) / 2.0;
+	--
+	--  o Formula 14-5
+	--
+	C = SQUARE (Math.cos (SP1)) + 2.0 * N * Math.sin (SP1);
+	--
+	--  o Formula 14-3a
+	--
+	P0 = INFO.RADIUS * SQUARE_ROOT (C - 2.0 * N * Math.sin (Y0) ) / N;
+	--
+	--  o Formula 14-10
+	--
+	Y = P0 - Y;
+
+	P = SQUARE_ROOT (X * X + Y * Y);
+	--
+	--  o Formula 14-11, ???
+	--
+	XT = ARC_TANGENT (X / Y);
+	--
+	--  o Formula 14-9
+	--
+	XY.X = INFO.X0 + (XT / N) * RAD_TO_DEG;
+	--
+	--  o Formula 14-8
+	--
+	R0 = P * N / INFO.RADIUS;
+	XY.Y = ARC_Math.sin ((C - R0 * R0) / (2.0 * N)) * RAD_TO_DEG;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("ALBERS_TO_XY");
+	  raise ;
+	  
+  end ALBERS_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_ALBERS (XY       : POINT;
+	                      INFO     : in out PROJECTION_INFORMATION;
+	                      ALBERS : out POINT) is
+	
+	X, Y, Y0 : DOUBLE;
+	SP1, SP2, P, N, C, P0, XT  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X   = (XY.X - INFO.X0) * toRad;
+	Y   = XY.Y * toRad;
+	Y0  = INFO.Y0 * toRad;
+	SP1 = INFO.SP1 * toRad;
+	SP2 = INFO.SP2 * toRad;
+	--
+	--  o Formula 14-6.
+	--
+	N = (Math.sin (SP1) + Math.sin (SP2)) / 2.0;
+	--
+	--  o Formula 14-5
+	--
+	C = SQUARE (Math.cos (SP1)) + 2.0 * N * Math.sin (SP1);
+	--
+	--  o Formula 14-3a
+	--
+	P0 = INFO.RADIUS * SQUARE_ROOT (C - 2.0 * N * Math.sin (Y0) ) / N;
+	--
+	--  o Formula 14-4
+	--
+	XT = N * X;
+	--
+	--  o Formula 14-3
+	--
+	P = INFO.RADIUS * SQUARE_ROOT (C - 2.0 * N * Math.sin (Y)) / N;
+	--
+	--  o Formula 14-2
+	--
+	ALBERS.Y = P0 - P * Math.cos (XT);
+	--
+	--  o Formula 14-1.
+	--
+	ALBERS.X = P * Math.sin (XT);
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_ALBERS");
+	  raise ;
+	  
+  end XY_TO_ALBERS;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_EDC
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT   : DOUBLE;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             PARALLEL_2   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+	
+  begin
+	
+	INFO.KIND         = NAVIGATION.EDC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.SP1          = PARALLEL_1;
+	INFO.SP2          = PARALLEL_2;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_EDC");
+	  
+  end SET_EDC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -- Note: The Eccentricity and Standard Parrallel values
+  -- are not implemented in this version. The Formula assumes that
+  -- these two values are at thier defaults.
+  --
+  -----------------------------------------------------------------
+  
+  procedure EDC_TO_XY (EDC : POINT;
+	                   INFO     : in out PROJECTION_INFORMATION;
+	                   XY       : out POINT) is
+	
+	X, Y, Y0 : DOUBLE;
+	SP1, SP2, P, N, G, P0, XT  : DOUBLE;
+  
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X   = EDC.X / INFO.RADIUS;
+	Y   = EDC.Y / INFO.RADIUS;
+	Y0  = INFO.Y0 * toRad;
+	SP1 = INFO.SP1 * toRad;
+	SP2 = INFO.SP2 * toRad;
+	--
+	--  o Formula 16-4.
+	--
+	N = (Math.cos (SP1) - Math.cos (SP2)) / (SP2 - SP1);
+	--
+	--  o Formula 16-3
+	--
+	G = Math.cos (SP1) / N + SP1;
+	--
+	--  o Formula 16-2 
+	--
+	P0 = G - Y0;
+	--
+	--  o Formula 14-10
+	--
+	Y = P0 - Y;
+	P = SQUARE_ROOT (X * X + Y * Y);
+	if N < 0.0 then
+	   P = - P;
+	end if;
+	--
+	--  o Formula 14-11, ???
+	--
+	XT = ARC_TANGENT (X / Y);
+	--
+	--  o Formula 14-9
+	--
+	XY.X = INFO.X0 + (XT / N) * RAD_TO_DEG;
+	--
+	--  o Formula 16-6
+	--
+	XY.Y = (G - P) * RAD_TO_DEG;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("EDC_TO_XY");
+	  raise ;
+	  
+  end EDC_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_EDC (XY       : POINT;
+	                   INFO     : in out PROJECTION_INFORMATION;
+	                   EDC : out POINT) is
+	
+	X, Y, Y0 : DOUBLE;
+	SP1, SP2, P, N, P0, XT, G  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X   = (XY.X - INFO.X0) * toRad;
+	Y   = XY.Y * toRad;
+	Y0  = INFO.Y0 * toRad;
+	SP1 = INFO.SP1 * toRad;
+	SP2 = INFO.SP2 * toRad;
+	--
+	--  o Formula 16-4.
+	--
+	N = (Math.cos (SP1) - Math.cos (SP2)) / (SP2 - SP1);
+	--
+	--  o Formula 16-3
+	--
+	G = Math.cos (SP1) / N + SP1;
+	--
+	--  o Formula 16-2, Note Radius multiplied later.
+	--
+	P0 = G - Y0;
+	--
+	--  o Formula 14-4, Note X is (X - X0) from above.
+	--
+	XT = N * X;
+	--
+	--  o Formula 16-1, Note Radius multiplied later.
+	--
+	P = G - Y;
+	--
+	--  o Formula 14-2
+	--
+	EDC.Y = INFO.RADIUS * (P0 - P * Math.cos (XT));
+	--
+	--  o Formula 14-1.
+	--
+	EDC.X = INFO.RADIUS * P * Math.sin (XT);
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_EDC");
+	  raise ;
+	  
+  end XY_TO_EDC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_PC
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT   : DOUBLE;
+	             ORIGIN_LON   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+	
+  begin
+	
+	INFO.KIND         = NAVIGATION.PC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_PC");
+	  
+  end SET_PC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -- Note: The Eccentricity and Standard Parrallel values
+  -- are not implemented in this version. The Formula assumes that
+  -- these two values are at thier defaults.
+  --
+  -----------------------------------------------------------------
+  
+  procedure PC_TO_XY (PC   : POINT;
+	                  INFO : in out PROJECTION_INFORMATION;
+	                  XY   : out POINT) is
+ 
+	X, Y, Y0, X0, E : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to Radians
+	--
+	X   = PC.X / INFO.RADIUS;
+	Y   = PC.Y / INFO.RADIUS;
+	Y0  = INFO.Y0 * toRad;
+	X0  = INFO.X0 * toRad;
+	--
+	--  o Formula 7-5.
+	--
+	if Y = -Y0 then 
+	   XY.Y = 0.0;
+	   XY.X = X * RAD_TO_DEG + X0;
+	--
+	--  o Formula  TBD
+	--
+	else
+	   
+	   null; 
+	   
+	end if; 
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("PC_TO_XY");
+	  raise ;
+	  
+  end PC_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_PC (XY       : POINT;
+	                   INFO     : in out PROJECTION_INFORMATION;
+	                   PC : out POINT) is
+
+	X, Y, X0, Y0, E : DOUBLE;
+	
+  begin
+	--
+	--  o  Degrees to radians
+	--
+	X  = XY.X * toRad;
+	Y  = XY.Y * toRad;
+	X0 = INFO.X0 * toRad;
+	Y0 = INFO.Y0 * toRad;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_PC");
+	  raise ;
+	  
+  end XY_TO_PC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_LCC 
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT   : DOUBLE;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             PARALLEL_2   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+	
+  begin
+	
+	INFO.KIND         = NAVIGATION.LCC;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.SP1          = PARALLEL_1;
+	INFO.SP2          = PARALLEL_2;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_LCC");
+	  
+  end SET_LCC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function LCC_M_FORMULA (P, E : DOUBLE) return DOUBLE is
+	
+	M, A : DOUBLE;
+	
+  begin
+	
+	A = E * Math.sin (P);
+   
+	M = Math.cos (P) / SQUARE_ROOT (1.0 - A * A);
+	
+	return M;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("LCC_M_FORMULA");
+	  raise ;
+	  
+  end LCC_M_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function LCC_T_FORMULA (P, E : DOUBLE) return DOUBLE is
+	
+	T, S, A, B : DOUBLE;
+	
+  begin
+	--
+	--  o Formula 15-9.
+	--  
+	S = Math.sin (P);
+	
+	A = (1.0 - S) / (1.0 + S);
+	
+	S = E * S;
+	
+	B = (1.0 + S) / (1.0 - S);
+	
+	T = SQUARE_ROOT (A * B ** E);
+	
+	return T;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("LCC_T_FORMULA");
+	  raise ;
+	  
+  end LCC_T_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function LCC_N_FORMULA (SP_1         : DOUBLE;
+	                      SP_2         : DOUBLE;
+	                      ECCENTRICITY : DOUBLE) return DOUBLE is
+	
+	N      : DOUBLE;
+	N1, N2 : DOUBLE;
+	M1, M2 : DOUBLE;
+	T1, T2 : DOUBLE;
+	
+  begin
+	--
+	--  o Formula 15-8.
+	-- 
+	M1 = LCC_M_FORMULA (SP_1, ECCENTRICITY);
+	M2 = LCC_M_FORMULA (SP_2, ECCENTRICITY);
+	
+	T1 = LCC_T_FORMULA (SP_1, ECCENTRICITY);
+	T2 = LCC_T_FORMULA (SP_2, ECCENTRICITY);
+	
+	N1 = LOGARITHM (M1) - LOGARITHM (M2);
+	N2 = LOGARITHM (T1) - LOGARITHM (T2);
+	
+	if N2 /= 0.0 then
+	  N = N1 / N2;
+	else
+	  N = 0.0;
+	end if;
+	
+	return N;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("LCC_N_FORMULA");
+	  raise ;
+	  
+  end LCC_N_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_LCC (XY   : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   LCC  : out POINT) is
+	
+	SP1, SP2, X, Y, X0, Y0 : DOUBLE;
+	N, T, T0, T1, Y2    : DOUBLE;
+	RD, M1, F, P0, P   : DOUBLE;
+	
+  begin
+	--
+	--  o Massive Conversion to radians
+	-- 
+	Y       = toRad * XY.Y;
+	X       = toRad * XY.X;
+	Y0      = toRad * INFO.Y0;
+	X0      = toRad * INFO.X0;
+	SP1     = toRad * INFO.SP1;
+	SP2     = toRad * INFO.SP2;
+	--
+	--  o Formula 15-8.
+	--
+	N = LCC_N_FORMULA (SP1, SP2, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-9.
+	--
+	T1 = LCC_T_FORMULA (SP1, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-9.
+	--
+	T0 = LCC_T_FORMULA (Y0, INFO.ECCENTRICITY);
+	--
+	--  o Formula 14-15.
+	--
+	M1 = LCC_M_FORMULA (SP1, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-10.
+	--
+	RD      = N * T1 ** N;
+	if RD /= 0.0 then
+	   F       = M1 / RD;
+	else
+	   F = INFINITY;
+	end if;
+	--
+	--  o Formula 15-9.
+	--
+	T = LCC_T_FORMULA (Y, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-7.
+	--
+	P       = INFO.RADIUS * F * T ** N;
+	--
+	--  o Formula 15-7a.
+	--
+	P0      = INFO.RADIUS * F * T0 ** N;
+	--
+	--  o Formula 14-4.
+	--
+	Y2   = N * (X - X0);
+	--
+	--  o Formula 14-1.
+	--
+	LCC.X = P * Math.sin (Y2);
+	--
+	--  o Formula 14-2.
+	--
+	LCC.Y = P0 - P * Math.cos (Y2);
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_LCC");
+	  println (" N ", N);
+	  println (" Y2", Y2);
+	  println (" M1", M1);
+	  println (" F ", F);
+	  println (" P0", P0);
+	  println (" P ", P);
+	  println (" T ", T);
+	  println (" T0", T0);
+	  raise ;
+	  
+  end XY_TO_LCC;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure LCC_TO_XY (LCC  : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   XY   : out POINT) is
+	
+	LAT_LAST          : DOUBLE;
+
+	X0, Y0, X, Y, Y2  : DOUBLE;
+	RY, SP1, SP2, R0  : DOUBLE;
+	T, T0, T1, M1, R1 : DOUBLE;
+	F, P0, P, N, M2   : DOUBLE;
+	
+  begin
+	
+	X                 = LCC.X / INFO.RADIUS;
+	Y                 = LCC.Y / INFO.RADIUS; 
+	SP1               = toRad * INFO.SP1;
+	SP2               = toRad * INFO.SP2;
+	X0                = toRad * INFO.X0;
+	Y0                = toRad * INFO.Y0;
+	--
+	--  o Formula 15-8.
+	--
+	N = LCC_N_FORMULA (SP1, SP2, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-9.
+	--
+	T1 = LCC_T_FORMULA (SP1, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-9.
+	--
+	T0 = LCC_T_FORMULA (Y0, INFO.ECCENTRICITY);
+	--
+	--  o Formula 14-5.
+	--
+	M1 = LCC_M_FORMULA (SP1, INFO.ECCENTRICITY);
+	--
+	--  o Formula 15-10.
+	--
+	F  = M1 / (N * T1 ** N);
+	--
+	--  o Formula 15-7a.
+	--
+	P0 = F * T0 ** N;
+	--
+	--  o Formula 14-10.
+	--
+	Y = P0 - Y;
+	P = SQUARE_ROOT (X * X + Y * Y);
+	--
+	--  o Formula 14-11.
+	--
+	Y2  = ARC_TANGENT (X / Y);
+	--
+	--  o Formula 15-11.
+	--
+	T  = (P / F) ** (1.0 / N);
+	-- 
+	--  o Formual 7-9.
+	--
+	RY = NINETY_IN_RADIANS - 2.0 * ARC_TANGENT (T);
+	
+	LAT_LAST = RY + 1.0;
+	
+	while LAT_LAST /= RY loop
+	  LAT_LAST  = RY;
+	  R0 = INFO.ECCENTRICITY * Math.sin (RY);  
+	  R1 = T * ( ((1.0 - R0) / (1.0 + R0)) ** (INFO.ECCENTRICITY / 2.0) );
+	  RY = NINETY_IN_RADIANS - 2.0 * ARC_TANGENT (R1);
+	end loop;
+	--
+	--  o 
+	--
+	XY.Y = RY * RAD_TO_DEG;
+	--
+	--  o Formula 14-9.
+	--
+	XY.X = (Y2 / N) * RAD_TO_DEG + INFO.X0;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("LCC_TO_XY");
+	  raise ;
+	  
+  end LCC_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_MILLER
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.MILLER;
+	INFO.X0           = ORIGIN_LON;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_MILLER");
+	  
+  end SET_MILLER;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_MILLER (XY     : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      MILLER : out POINT) is
+	
+	RY, X, Y  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to radians.
+	--
+	X = (XY.X - INFO.X0) * toRad;
+	Y = XY.Y * toRad;
+	--
+	--  o Formula 11-1.
+	-- 
+	MILLER.X = INFO.RADIUS * X;
+	--
+	--   o Formula 11-2.
+	--
+	RY = LOGARITHM (TANGENT (PI_OVER_FOUR + Y * 0.4));
+	
+	MILLER.Y = INFO.RADIUS * RY * 1.25;
+   
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_MILLER");
+	  raise ;
+	  
+  end XY_TO_MILLER;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure MILLER_TO_XY (MILLER : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      XY     : out POINT) is
+	
+	RY, X, Y  : DOUBLE;
+	
+  begin
+	--
+	--  o 
+	--
+	X = MILLER.X / INFO.RADIUS;
+	Y = MILLER.Y / INFO.RADIUS;
+	--
+	--  o Formula 11-7.
+	-- 
+	XY.X = INFO.X0 + X * RAD_TO_DEG;
+	--
+	--   o Formula 11-6.
+	--
+	RY = EXPONENTIAL (0.8 * Y );
+	
+	RY = 2.5 * ARC_TANGENT (RY) - 0.625 * PI;
+
+	XY.Y = RY * RAD_TO_DEG;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("MILLER_TO_XY");
+	  raise ;
+	  
+  end MILLER_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_CASSINI
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LAT   : DOUBLE;
+	             ORIGIN_LON   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.CASSINI;
+	INFO.X0           = ORIGIN_LON;
+	INFO.Y0           = ORIGIN_LAT;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_CASSINI");
+	  
+  end SET_CASSINI;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_CASSINI (XY     : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      CASSINI : out POINT) is
+	
+	Y0, RY, X, Y, B  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to radians.
+	--
+	X  = (XY.X - INFO.X0) * toRad;
+	Y  = XY.Y * toRad;
+	Y0 = INFO.Y0 * toRad;
+	--
+	--  o Formula 8-5.
+	--
+	B = Math.cos (Y) * Math.sin (X);
+	--
+	--  o Formula 13-1.
+	-- 
+	CASSINI.X = INFO.RADIUS * ARC_Math.sin (B);
+	--
+	--   o Formula 13-2.
+	--
+	RY = TANGENT (Y) / Math.cos (X);
+	
+	CASSINI.Y = INFO.RADIUS * (ARC_TANGENT (RY) - Y0);
+   
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_CASSINI");
+	  raise ;
+	  
+  end XY_TO_CASSINI;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure CASSINI_TO_XY (CASSINI : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      XY     : out POINT) is
+	
+	RY, RX, X, Y, D  : DOUBLE;
+	
+  begin
+	--
+	--  o  Undo the Radius
+	--
+	X = CASSINI.X / INFO.RADIUS;
+	Y = CASSINI.Y / INFO.RADIUS;
+	--
+	--  o Formula 13-6.
+	--
+	D = Y + INFO.Y0 * toRad;
+	--
+	--  o Formula 13-5.
+	-- 
+	RX = TANGENT (X) / Math.cos (D);
+
+	XY.X = INFO.X0 + ARC_TANGENT (RX) * RAD_TO_DEG;
+	--
+	--   o Formula 11-6.
+	--
+	RY = Math.sin (D) * Math.cos (X);
+	
+	XY.Y = ARC_Math.sin (RY) * RAD_TO_DEG;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("CASSINI_TO_XY");
+	  raise ;
+	  
+  end CASSINI_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_BONNE
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.BONNE;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_BONNE");
+	  
+  end SET_BONNE;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_BONNE (XY    : POINT;
+	                     INFO  : in out PROJECTION_INFORMATION;
+	                     BONNE : out POINT) is
+	
+	X, Y, P, E, SP1  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to radians.
+	--
+	X   = (XY.X - INFO.X0) * toRad;
+	Y   = XY.Y * toRad;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 19-1, (less the radius).
+	--
+	P = CO_TANGENT (SP1) + SP1 - Y;
+	--
+	--  o Formula 19-2, (less the radius).
+	-- 
+	E = X * Math.cos (Y) / P;
+	--
+	--  o Formula 19-3.
+	--
+	BONNE.X = INFO.RADIUS * P * Math.sin (E);
+	--
+	--  o Formula 19-4.
+	--
+	BONNE.Y = INFO.RADIUS * (CO_TANGENT (SP1) - P * Math.cos (E));
+   
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_BONNE");
+	  raise ;
+	  
+  end XY_TO_BONNE;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure BONNE_TO_XY (BONNE : POINT;
+	                     INFO   : in out PROJECTION_INFORMATION;
+	                     XY     : out POINT) is
+	
+	X, Y, P, E, SP1, RY  : DOUBLE;
+	
+  begin
+	--
+	--  o  Undo the Radius
+	--
+	X   = BONNE.X / INFO.RADIUS;
+	Y   = BONNE.Y / INFO.RADIUS;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 19-5.
+	--
+	Y = CO_TANGENT (SP1) - Y;
+
+	P = SQUARE_ROOT (X * X + Y * Y) * SIGN (SP1);
+	--
+	--  o Formula 19-6.
+	-- 
+	RY = CO_TANGENT (SP1) + SP1 - P;
+  
+	XY.Y = RY * RAD_TO_DEG;
+	--
+	--   o Formula 19-7
+	--
+	E = ARC_TANGENT (X / Y);
+
+	XY.X = INFO.X0 + (P * E / Math.cos (RY)) * RAD_TO_DEG; 
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("BONNE_TO_XY");
+	  raise ;
+	  
+  end BONNE_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_CEA
+	            (INFO         : in out PROJECTION_INFORMATION;
+	             ORIGIN_LON   : DOUBLE;
+	             PARALLEL_1   : DOUBLE;
+	             ECCENTRICITY : DOUBLE;
+	             RADIUS       : DOUBLE) is
+   
+  begin
+	
+	INFO.KIND         = NAVIGATION.CEA;
+	INFO.X0           = ORIGIN_LON;
+	INFO.SP1          = PARALLEL_1;
+	INFO.ECCENTRICITY = ECCENTRICITY;
+	INFO.RADIUS       = RADIUS;
+	INFO.CALCULATED   = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_CEA");
+	  
+  end SET_CEA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_CEA (XY   : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   CEA  : out POINT) is
+	
+	X, Y, SP1  : DOUBLE;
+	
+  begin
+	--
+	--  o Convert Degrees to radians.
+	--
+	X   = (XY.X - INFO.X0) * toRad;
+	Y   = XY.Y * toRad;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o Formula 10-1.
+	--
+	CEA.X = INFO.RADIUS * X * Math.cos (SP1);
+	--
+	--  o Formula 10-2.
+	--
+	CEA.Y = INFO.RADIUS * Math.sin (Y) / Math.cos (SP1);
+   
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_CEA");
+	  raise ;
+	  
+  end XY_TO_CEA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure CEA_TO_XY (CEA : POINT;
+	                   INFO   : in out PROJECTION_INFORMATION;
+	                   XY     : out POINT) is
+	
+	X, Y, SP1  : DOUBLE;
+	
+  begin
+	--
+	--  o  Undo the Radius
+	--
+	X   = CEA.X / INFO.RADIUS;
+	Y   = CEA.Y / INFO.RADIUS;
+	SP1 = INFO.SP1 * toRad;
+	--
+	--  o ?
+	--
+	XY.X = (X / Math.cos (SP1)) * RAD_TO_DEG + INFO.X0;
+	--
+	--  o ?
+	--
+	XY.Y = ARC_Math.sin (Y * Math.cos (SP1)) * RAD_TO_DEG;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("CEA_TO_XY");
+	  raise ;
+	  
+  end CEA_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_ADRG (XY     : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      ADRG : out POINT) is
+   
+  begin
+  
+	null;
+ 
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_ADRG");
+	  raise ;
+	  
+  end XY_TO_ADRG;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure ADRG_TO_XY (ADRG : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      XY     : out POINT) is
+  
+  begin
+
+	null;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("ADRG_TO_XY");
+	  raise ;
+	  
+  end ADRG_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_RASTER (XY     : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      RASTER : out POINT) is
+   
+  begin
+  
+	null;
+ 
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_RASTER");
+	  raise ;
+	  
+  end XY_TO_RASTER;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure RASTER_TO_XY (RASTER : POINT;
+	                      INFO   : in out PROJECTION_INFORMATION;
+	                      XY     : out POINT) is
+  
+  begin
+
+	null;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("RASTER_TO_XY");
+	  raise ;
+	  
+  end RASTER_TO_XY;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SET_SOM (INFO         : in out PROJECTION_INFORMATION;
+	                 PATH         : INT;
+	                 ECCENTRICITY : DOUBLE;
+	                 RADIUS       : DOUBLE;
+	                 INCLINE      : DOUBLE;
+	                 P1           : DOUBLE;
+	                 P2           : DOUBLE;
+	                 C1           : DOUBLE;
+	                 C2           : DOUBLE;
+	                 EARTH_RADIUS : DOUBLE) is
+	
+  begin
+	
+	INFO.KIND                   = NAVIGATION.SOM;
+	INFO.ECCENTRICITY           = ECCENTRICITY;
+	INFO.RADIUS                 = RADIUS;
+	INFO.SATELLITE.EARTH_RADIUS = EARTH_RADIUS;
+	INFO.SATELLITE.PATH         = PATH;
+	INFO.SATELLITE.INCLINE      = INCLINE;
+	INFO.SATELLITE.P1           = P1;
+	INFO.SATELLITE.P2           = P2;
+	INFO.SATELLITE.C1           = C1;
+	INFO.SATELLITE.C2           = C2;
+	
+	INFO.CALCULATED             = FALSE;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SET_SOM");
+	  
+  end SET_SOM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function SOM_S_FORMULA (X2   : DOUBLE;
+	                      INFO : SOM_RECORD) return DOUBLE is
+	
+	S, S1, S2, S3 : DOUBLE;
+	
+  begin
+	--
+	--
+	--
+	S1 = SQUARE (Math.sin (X2));
+	S2 = (1.0 + INFO.Q * S1) * (1.0 + INFO.W * S1);
+	--
+	--  o Calculation of S (page 222, Formula 27-30).
+	--
+	S3 = (1.0 + INFO.T * S1) / S2;
+	
+	S  = INFO.P * Math.sin (INFO.I) * Math.cos (X2) * SQUARE_ROOT (S3);
+	
+	return S;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_S_FORMULA");
+	  raise ;
+	  
+  end SOM_S_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function SOM_H_FORMULA (X2 : DOUBLE;
+	                      INFO     : SOM_RECORD) return DOUBLE
+	                     is
+	
+	H, S1, S2, S3, S4 : DOUBLE;
+	
+  begin
+	--
+	--
+	--
+	S1 = SQUARE (Math.sin (X2));
+	S2 = 1.0 + INFO.Q * S1;
+	S3 = 1.0 + INFO.W * S1;
+	--
+	--  o Calculation of H (page 222, Formula 27-31).
+	--
+	S4 = (S3 / SQUARE (S2)) - INFO.P * Math.cos (INFO.I);
+  
+	H  = SQUARE_ROOT (S2 / S3) * S4;
+	
+	return H;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_H_FORMULA");
+	  raise ;
+	  
+  end SOM_H_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SOM_X2_FORMULA (XY       : POINT;
+	                        INFO     : SOM_RECORD;
+	                        X2 : out DOUBLE;
+	                        XT : out DOUBLE) is
+	
+	T1, T2, T3  : DOUBLE;
+	Y, X, S1, SA, SB  : DOUBLE;
+	CONVERGENCE : constant DOUBLE = 0.0000001 * toRad;
+	ADJ, ADDER  : DOUBLE;
+	
+  begin
+	--
+	--
+	--
+	X = (XY.X - INFO.X0) * toRad;
+	Y = XY.Y * toRad;
+	--
+	--  o Adjustment page 219.
+	--
+	if XY.Y >= 0.0 then
+	  ADJ = 90.0;
+	else
+	  ADJ = 270.0;
+	end if;
+	
+	ADDER = SIGN (Math.cos (X + INFO.P * ADJ * toRad));
+	
+	ADJ = ADJ - 90.0 * Math.sin (ADJ * toRad) * ADDER;
+	--
+	--  o Formula 27-34, Constants calculated before loop
+	-- 
+	SA = Math.cos (INFO.I);
+	
+	SB = (1.0 - INFO.E2) * Math.sin (INFO.I) * TANGENT (Y);
+	--
+	--  o Initial Trial ???
+	-- 
+	T1 = 90.0 * toRad;
+	ADJ = ADJ * toRad;
+	--
+	--  o Iterative Loop Formula 27-34,27-35.
+	-- 
+	for ITERATIONS in 1 .. 100 loop
+	  T3      = T1;
+	  T2      = X + INFO.P * T1;
+	  S1      = SA * TANGENT (T2) + SB / Math.cos (T2);
+	  T1      = ADJ + ARC_TANGENT (S1);
+	  exit  when (abs (T1 - T3) <= CONVERGENCE);
+	end loop;
+	
+	X2 = T1;
+	XT = T2;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_X2_FORMULA");
+	  raise ;
+	  
+  end SOM_X2_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+	function  SOM_X2_INVERSE (X     : DOUBLE;
+	                          Y     : DOUBLE;
+	                        INFO  : SOM_RECORD) return DOUBLE is
+	                        
+	CONVERGENCE : constant DOUBLE = 0.0000001;
+	S, X2, XP, XC : DOUBLE; 
+  
+  begin
+	--
+	--  o Page 224.
+	--
+	XC = X * INFO.B;
+	--
+	--  o Iterative Loop Formula 27-34,27-35.
+	-- 
+	for ITERATIONS in 1 .. 100 loop
+	  XP = XC;
+	  S  = SOM_S_FORMULA (XP, INFO);
+	  XC = X + (S / INFO.J) * Y - 
+	        INFO.A2 * Math.sin (2.0 * XP) -
+	        INFO.A4 * Math.sin (4.0 * XP) -
+	        (S / INFO.J) * (INFO.C1 * Math.sin (XP) +
+	                        INFO.C3 * Math.sin (3.0 * XP));
+	  XC = XC / INFO.B;
+	  exit  when (abs (XP - XC) <= CONVERGENCE);
+	end loop;
+	
+	X2 = XC;
+
+	return X2;
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_X2_INVERSE");
+	  raise ;
+	  
+  end SOM_X2_INVERSE;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  function SOM_Y2_FORMULA (LAT  : DOUBLE;
+	                       XT   : DOUBLE;
+	                       INFO : SOM_RECORD) return DOUBLE is
+
+	Y, Y2, R0 : DOUBLE;
+
+	begin
+	--
+	--  o
+	--
+	Y  = LAT * toRad;
+	-- 
+	--  o  page 223 Formula 27-36
+	--
+	R0 = ( (1.0 - INFO.E2) * Math.cos (INFO.I) * Math.sin (Y) -
+	          Math.sin (INFO.I) * Math.cos (Y) * Math.sin (XT) )  /
+	      SQUARE_ROOT (1.0 - INFO.E2 * SQUARE (Math.sin (Y)));
+	--
+	--  o Validate R0 for the Arc Sine Function.
+	--
+	if not (R0 in -1.0 .. 1.0) then
+	   println (" R0 ", R0);
+	   println (" LAT", LAT);
+	   EXCEPTION_HANDLER ("SOM_Y2_FORMULA.1");
+	   if R0 > 1.0 then  -- Probably Wrong thing to do.
+	      R0 = 1.0;
+	   else
+	      R0 = -1.0;
+	   end if;
+	end if;
+
+	Y2 = ARC_Math.sin (R0);
+
+	return Y2;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_Y2_FORMULA");
+	  raise ;
+	  
+  end SOM_Y2_FORMULA;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SOM_CONSTANTS (INFO : in out PROJECTION_INFORMATION) is
+ 
+	DX       : constant DOUBLE = 9.0 * toRad;
+
+	A2, A4, C1, C3, B    : DOUBLE = 0.0;
+	H, S2, S, X2, Y2     : DOUBLE = 0.0;
+	T1, T2, T3, T4       : DOUBLE = 0.0;
+	MULTIPLIER           : DOUBLE = 0.0;
+	
+  begin
+	--
+	--  o Generate Initial Constants
+	--
+	INFO.SOM.I  = INFO.SATELLITE.INCLINE * toRad;
+
+	INFO.SOM.E2 = INFO.ECCENTRICITY * INFO.ECCENTRICITY;
+
+	INFO.SOM.P  = INFO.SATELLITE.P2 / INFO.SATELLITE.P1;
+	--
+	--  o Formula 27-24.
+	--
+	INFO.SOM.J   = (1.0 - INFO.SOM.E2) ** 3.0;
+	--
+	--  o Formula 27-37, 27-38.
+	--
+	INFO.SOM.X0 = INFO.SATELLITE.C1 - 
+	                 ((360.0 * DOUBLE (INFO.SATELLITE.PATH) ) /
+	                  INFO.SATELLITE.C2);
+	--
+	INFO.SOM.X0 = 107.36; -- Patch to test against USGS Examples
+	--
+
+	--
+	--  o Calculate W (page 222, Formula 27-24).
+	--
+	T1 = SQUARE (Math.cos (INFO.SOM.I));
+	
+	INFO.SOM.W = ((1.0 - INFO.SOM.E2 * T1) ** 2.0) /
+	              ((1.0 - INFO.SOM.E2) ** 2.0) - 1.0;
+	--
+	--  o Calculation of Q.
+	--
+	T1 = SQUARE (INFO.ECCENTRICITY * Math.sin (INFO.SOM.I));
+	T2 = 1.0 - INFO.SOM.E2;
+	
+	INFO.SOM.Q        = T1 / T2;
+	--
+	--  o Calculation of T.
+	--
+	T3            = 2.0 - INFO.SOM.E2;
+	
+	INFO.SOM.T        = (T1 * T3) / (T2 * T2);
+	--
+	--  o Calculation of A, B, C.
+	--
+	for ANGLE in 0 .. 10 loop
+	  S = SOM_S_FORMULA (X2, INFO.SOM);
+	  H = SOM_H_FORMULA (X2, INFO.SOM);
+	  
+	  S2  = S * S;
+	  
+	  T1 = SQUARE_ROOT (INFO.SOM.J * INFO.SOM.J + S2);
+	  T2 = (H * INFO.SOM.J - S2) / T1;
+	  T3 = S * (H + INFO.SOM.J) / T1;
+	  --
+	  --  o Multiplier
+	  --
+	  MULTIPLIER = DOUBLE (SIMPSONS_MULTIPLIERS (ANGLE));
+	  -- 
+	  --  o Calculation of B (page 222, Formula 27-21).
+	  --
+	  B        = B + MULTIPLIER * T2;
+	  -- 
+	  --  o Calculation of A2 (page 222, Formula 27-22).
+	  --
+	  T4 = Math.cos (2.0 * X2);
+	  A2       = A2 + MULTIPLIER * T2 * T4;
+	  --
+	  --  o Calculation of A4 (page 222, Formula 27-22).
+	  --
+	  T4 = Math.cos (4.0 * X2);
+	  A4       = A4 + MULTIPLIER * T2 * T4;
+	  -- 
+	  --  o Calculation of C1 (page 222, Formula 27-23).
+	  --
+	  T4 = Math.cos (1.0 * X2);
+	  C1       = C1 + MULTIPLIER * T3 * T4;
+	  --
+	  --  o Calculation of C3 (page 222, Formula 27-23).
+	  --
+	  T4 = Math.cos (3.0 * X2);
+	  C3       = C3 + MULTIPLIER * T3 * T4;
+	  
+	  X2 = X2 + DX;
+	  
+	end loop;
+	--
+	--  o Finish off the Calculation
+	--
+	MULTIPLIER  = DX / 3.0;
+	INFO.SOM.B  = MULTIPLIER * B * 2.0 / PI;
+	INFO.SOM.A2 = MULTIPLIER * A2 * 4.0 / (PI * 2.0);
+	INFO.SOM.A4 = MULTIPLIER * A4 * 4.0 / (PI * 4.0);
+	INFO.SOM.C1 = MULTIPLIER * C1 * 4.0 / (PI * 1.0);
+	INFO.SOM.C3 = MULTIPLIER * C3 * 4.0 / (PI * 3.0);
+
+	INFO.SOM.A6 = 0.0;
+	INFO.SOM.C5 = 0.0;
+
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("SOM_CONSTANTS");
+	  raise ;
+	  
+  end SOM_CONSTANTS;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure XY_TO_SOM (XY   : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   SOM  : out POINT) is
+	
+   
+	X, Y, S    : DOUBLE;
+	T1, T2     : DOUBLE;
+	X2, Y2, XT : DOUBLE;
+  
+  begin
+	--
+	--  o Calculate SOM Constants
+	--
+	SOM_CONSTANTS (INFO);
+	--
+	--  o Iteration of Formulas 27-34,27-35.
+	--
+	SOM_X2_FORMULA (XY, INFO.SOM, X2, XT);
+	--
+	--  o Recalculate S with new Lambda Primed.
+	--
+	S = SOM_S_FORMULA (X2, INFO.SOM);
+	-- 
+	--  o Calculate Y2
+	--
+	Y2 = SOM_Y2_FORMULA (XY.Y, XT, INFO.SOM);
+	--
+	--  o
+	--
+	T1 = LOGARITHM (TANGENT ((PI / 4.0) + (Y2 / 2.0)));
+	T2 = SQUARE_ROOT (INFO.SOM.J * INFO.SOM.J + S * S);
+	--
+	--  o Final Calculation of X. 
+	--    Page 222, Formula (27-32);
+	-- 
+	X = INFO.SOM.B * X2 + 
+	      INFO.SOM.A2 * Math.sin (2.0 * X2) + 
+	      INFO.SOM.A4 * Math.sin (4.0 * X2) +
+	      INFO.SOM.A6 * Math.sin (6.0 * X2) -
+	      (S / T2) * T1;
+	
+	SOM.X = X * INFO.SATELLITE.EARTH_RADIUS;
+	--
+	--  o Final Calculation of Y. 
+	--    Page 222, Formula (27-33);
+	-- 
+	Y = INFO.SOM.C1 * Math.sin (1.0 * X2) + 
+	     INFO.SOM.C3 * Math.sin (3.0 * X2) + 
+	     INFO.SOM.C5 * Math.sin (5.0 * X2) + 
+	     (INFO.SOM.J / T2) * T1;
+	
+	SOM.Y = Y * INFO.SATELLITE.EARTH_RADIUS;
+
+	println ("--------- XY_TO_SOM -----------");
+	println ("X2", X2);
+	println ("XT", XT);
+	println ("S ", S);
+	println ("Y2", Y2);
+	println ("T1", T1);
+	println ("T2", T2);
+	
+  exception
+	when others =>
+	  EXCEPTION_HANDLER ("XY_TO_SOM");
+	  raise ;
+	  
+  end XY_TO_SOM;
+  ----------------------------------------------------------------
+  --                     TIBURON SYSTEMS, INC.
+  ----------------------------------------------------------------
+  --
+  --  Name:
+  --
+  --  Purpose:
+  --
+  --   Rev No.   Date     Who  Description
+  --   ------- ---------  ---  -----------
+  --      1    dd MMM yy  aaa  Original Version
+  --
+  --  Exceptions:
+  --
+  --  Inputs:
+  --
+  --  Outputs:
+  -- 
+  --  Stack:
+  --
+  --  Globals:
+  --
+  --  Modules Called:
+  --
+  --  Method:
+  --
+  -----------------------------------------------------------------
+  
+  procedure SOM_TO_XY (SOM  : POINT;
+	                   INFO : in out PROJECTION_INFORMATION;
+	                   XY   : out POINT) is
+ 
+	U, V, RY, X, Y : DOUBLE;
+	T1, T2, S    : DOUBLE;
+	X2, Y2, XT   : DOUBLE;
+
+  begin
+	--
+	--  o Calculate SOM Constants
+	--
+	SOM_CONSTANTS (INFO);
+	--
+	--
+	--
+	X = SOM.X / INFO.SATELLITE.EARTH_RADIUS; 
+	Y = SOM.Y / INFO.SATELLITE.EARTH_RADIUS; 
+	--
+	--  o Formula 27-51, Involves iteration
+	--
+	X2 = SOM_X2_INVERSE (X, Y, INFO.SOM);
+	--
+	--  o Formula 27-52.
+	--
+	S = SOM_S_FORMULA (X2, INFO.SOM);
+	
+	T1 = SQUARE_ROOT (1.0 + (S * S) / (INFO.SOM.J * INFO.SOM.J));
+	T2 = Y - INFO.SOM.C1 * Math.sin (X2) - 
+	          INFO.SOM.C3 * Math.sin (3.0 * X2);
+
+	Y2 = 2.0 * (ARC_TANGENT (EXPONENTIAL (T1 * T2)) - PI / 4.0);
+	--
+	--  o Formula 27-48.
+	--
+	U = INFO.SOM.E2 * SQUARE (Math.cos (INFO.SOM.I)) / (1.0 - INFO.SOM.E2);
+	--
+	--  o Formula 27-47
+	--
+	V = ((1.0 - SQUARE (Math.sin (Y2)) / (1.0 - INFO.SOM.E2)) *
+	     Math.cos (INFO.SOM.I) * Math.sin (X2) - 
+	     Math.sin (INFO.SOM.I) * Math.sin(Y2) *
+	     SQUARE_ROOT (1.0 + INFO.SOM.Q * SQUARE (Math.sin (X2)) *
+	     (1.0 - SQUARE (Math.sin (Y2))) - U * SQUARE (Math.sin (Y2)))) /
+	     (1.0 - SQUARE (Math.sin (Y2)) * (1.0 + U));
+	--
+	--  o Formula 27-46
+	--
+	XT = ARC_TANGENT2 (V, Math.cos (X2) );
+	--
+	--  o Formula 27-45
+	-- 
+	XY.X = (XT - INFO.SOM.P * X2) * RAD_TO_DEG + INFO.SOM.X0;
+	--
+	--  o Formula  27-49.
+	-- 
+	if INFO.SOM.I /= 0.0 then
+	   T1 = TANGENT (X2) * Math.cos (XT) - 
+	         Math.cos (INFO.SOM.I) * Math.sin (XT);
+	   T2 = (1.0 - INFO.SOM.E2) * Math.sin (INFO.SOM.I);
+	   RY  = ARC_TANGENT (T1 / T2);
+	--
+	--  o Formula  27-50.
+	-- 
+	else
+	   T1 = Math.sin (Y2); 
+	   T2 = SQUARE (1.0 - INFO.SOM.E2) + INFO.SOM.E2 * T1 * T1;
+	   RY  = ARC_Math.sin (T1 / SQUARE_ROOT (T2));
+	end if;
+
+	XY.Y = RY * RAD_TO_DEG;
+
+	println (" --- SOM_TO_XY ---- ");
+	println ("U ", U);
+	println ("V ", V);
+	println ("RY", RY);
+	println ("S ", S);
+	println ("X2", X2);
+	println ("Y2", Y2);
+	println ("XT", XT); 
+
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+
+public Pt toGeo(Point3D pt0, ProjectionInfo info) { 
+
+	/**
+	 **  o Compute Latitude.
+	 **/
+
+	double Y = Math.asin(pt0.Z) * toDeg;
+
+	/**
+	 **  o Compute C.
+	 **/	
+
+	double C = Math.sqrt(Math.sqrt(1.0 - Math.sqrt(pt0.Z)));
+
+	/**
+	 **  o Compute Longitude
+	 **/
+	double X = Math.asin(pt0.Y / C) * toDeg;
+	
+	if (pt0.X < 0.0) {
+		if (X > 0.0) {
+			X = 180.0 - X;
+		} else {
+			X = -(X + 180.0);
+		}
+	} else {
+		Y = 90.0;
+		X = 0.0;
+	}
+
+	Pt pt = new Pt();
+	pt.lat = Y;
+	pt.lon = X;	
+
+	return pt;
+}
+
+/** ----------------------------------------------------------
+ **
+ **
+ ** @param
+ ** @return
+ ** @exception
+ **
+ ** ----------------------------------------------------------
+ **/
+ 
+public Point3D toGeo(Pt pt0, ProjectionInfo info) { 
+
+	/**
+	 **  o Calculate Z axis.
+	 **/	
+
+	double S = Math.sin(pt0.lat * toRad);
+
+	/**
+	 **  o Calculate C.
+	 **/
+	
+	double C = 0.0;
+	double X = 1.0 - Math.sqrt(S);
+	if (X > 0.0) {
+		C = Math.sqrt(X);
+	}
+
+	Point3D pt = new Point3D();
+	pt.Y = Math.sin(pt0.lon * toRad) * C;
+	pt.X = Math.cos(pt0.lon * toRad) * C;
+	pt.Z = S;
+
+	return pt;
+}
+}

@@ -1,0 +1,44 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" 
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="12cm" height="4cm" viewBox="0 0 1200 400"
+     xmlns="http://www.w3.org/2000/svg" version="1.1">
+     <desc>Example polygon01 - star and hexagon</desc>
+<defs>
+    <linearGradient id="MyGradient" gradientUnits="userSpaceOnUse"
+            x1="100" y1="0" x2="300" y2="0">
+      <stop offset="0" stop-color="#000000" />
+      <stop offset=".33" stop-color="#ffffff" />
+      <stop offset=".67" stop-color="#ff0000" />
+      <stop offset="1" stop-color="#808080" />
+    </linearGradient>
+    <filter id="Normal">
+      <feBlend mode="normal" in2="BackgroundImage" in="SourceGraphic"/>
+    </filter>
+    <filter id="Multiply">
+      <feBlend mode="multiply" in2="BackgroundImage" in="SourceGraphic"/>
+    </filter>
+    <filter id="Screen">
+      <feBlend mode="screen" in2="BackgroundImage" in="SourceGraphic"/>
+    </filter>
+    <filter id="Darken">
+      <feBlend mode="darken" in2="BackgroundImage" in="SourceGraphic"/>
+    </filter>
+    <filter id="Lighten">
+      <feBlend mode="lighten" in2="BackgroundImage" in="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <!-- Show outline of canvas using 'rect' element -->
+  <rect x="1" y="1" width="1198" height="398"
+        fill="none" stroke="blue" stroke-width="2" />
+<polygon name="start" fill="red" stroke="blue" stroke-width="10" filter="url(#Darken)"  
+            points="350,75  379,161 469,161 397,215
+                    423,301 350,250 277,301 303,215
+                    231,161 321,161" />
+	    <polygon name="hexagon" fill="lime" stroke="blue" stroke-width="10" filter="url(#Normal)"  
+            points="850,75  958,137.5 958,262.5
+                    850,325 742,262.6 742,137.5" />
+</svg>
+
+

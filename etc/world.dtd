@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="US-ASCII"?>
+
+<!ELEMENT WorldData (Heading?, Segment*)>
+<!ELEMENT Heading (#PCDATA)>
+
+<!ELEMENT Segment (Grid?, Center?, Pt*)>
+	<!ATTLIST Segment
+		kind CDATA #IMPLIED
+		rank CDATA #IMPLIED
+		number CDATA #IMPLIED
+	>
+<!ELEMENT Grid EMPTY>
+	<!ATTLIST Grid
+		min_lat CDATA #REQUIRED
+		max_lat CDATA #REQUIRED
+		min_lon CDATA #REQUIRED
+		max_lon CDATA #REQUIRED
+	>
+<!ELEMENT Pt EMPTY>
+	<!ATTLIST Pt
+		lat CDATA #REQUIRED
+		lon CDATA #REQUIRED
+	>
+<!ELEMENT Center EMPTY>
+	<!ATTLIST Center 
+		lat CDATA #REQUIRED
+		lon CDATA #REQUIRED
+	>

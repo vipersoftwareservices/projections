@@ -1,0 +1,344 @@
+Testsuite: tests.AllTests
+Tests run: 102, Failures: 6, Errors: 0, Time elapsed: 0.125 sec
+
+Testcase: testAlbersComputeQ took 0.062 sec
+Testcase: testAlbersSphereForward took 0 sec
+Testcase: testAlbersSphereInverse took 0 sec
+Testcase: testAlbersEllipsoidForward took 0 sec
+Testcase: testAlbersEllipsoidInverse took 0 sec
+Testcase: testAzimuthalM0 took 0 sec
+Testcase: testAzimuthalM80 took 0 sec
+Testcase: testAzimuthalM90 took 0 sec
+Testcase: testAzimuthalT took 0 sec
+Testcase: testAzimuthalDebug took 0 sec
+Testcase: testAzimuthalSphereForward took 0 sec
+Testcase: testAzimuthalSphereInverse took 0 sec
+Testcase: testAzimuthalEllipsoidForward took 0 sec
+Testcase: testAzimuthalEllipsoidInverse took 0 sec
+Testcase: testAzimuthalEllipsoidForward1 took 0 sec
+Testcase: testAzimuthalEllipsoidInverse1 took 0 sec
+Testcase: testAzimuthalStress took 0 sec
+Testcase: testBonneM took 0.016 sec
+Testcase: testBonneMa took 0 sec
+Testcase: testBonneM1 took 0 sec
+Testcase: testBonneT took 0 sec
+Testcase: testBonneSphereForward took 0 sec
+Testcase: testBonneSphereInverse took 0 sec
+Testcase: testBonneEllipsoidForward took 0 sec
+Testcase: testBonneEllipsoidInverse took 0 sec
+Testcase: testCassiniSphereForward took 0 sec
+Testcase: testCassiniSphereInverse took 0 sec
+Testcase: testCassiniEllipsoidForward took 0 sec
+Testcase: testCassiniEllipsoidInverse took 0 sec
+Testcase: testCylindricalEqualAreaK0 took 0 sec
+Testcase: testCylindricalEqualAreaQ took 0 sec
+Testcase: testCylindricalEqualAreaT took 0 sec
+Testcase: testCylindricalEqualAreaSphereForward took 0 sec
+Testcase: testCylindricalEqualAreaSphereInverse took 0 sec
+Testcase: testCylindricalEqualAreaEllipsoidForward took 0 sec
+Testcase: testCylindricalEqualAreaEllipsoidInverse took 0 sec
+	FAILED
+expected:<10.0> but was:<NaN>
+junit.framework.AssertionFailedError: expected:<10.0> but was:<NaN>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at junit.framework.Assert.assertEquals(Assert.java:108)
+	at tests.CylindricalEqualAreaCase.testCylindricalEqualAreaEllipsoidInverse(CylindricalEqualAreaCase.java:170)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testEquidistantConicSphereForward took 0 sec
+Testcase: testEquidistantConicSphereInverse took 0 sec
+Testcase: testEquidistantConicEllipsoidForward took 0 sec
+	FAILED
+expected:<1540507.6> but was:<1546090.7876747688>
+junit.framework.AssertionFailedError: expected:<1540507.6> but was:<1546090.7876747688>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at junit.framework.Assert.assertEquals(Assert.java:108)
+	at tests.EquidistantConicCase.testEquidistantConicEllipsoidForward(EquidistantConicCase.java:114)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testEquidistantConicEllipsoidInverse took 0 sec
+Testcase: testEquidistantCylindricalSphereForward took 0 sec
+Testcase: testEquidistantCylindricalSphereInverse took 0 sec
+Testcase: testVerticalPerspectiveEllipsoidForward took 0 sec
+	FAILED
+expected:<1540507.6> but was:<2393837.562746175>
+junit.framework.AssertionFailedError: expected:<1540507.6> but was:<2393837.562746175>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at junit.framework.Assert.assertEquals(Assert.java:108)
+	at tests.VerticalPerspectiveCase.testVerticalPerspectiveEllipsoidForward(VerticalPerspectiveCase.java:70)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testVerticalPerspectiveEllipsoidInverse took 0 sec
+	FAILED
+expected:<35.0> but was:<29.500000414059688>
+junit.framework.AssertionFailedError: expected:<35.0> but was:<29.500000414059688>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at junit.framework.Assert.assertEquals(Assert.java:108)
+	at tests.VerticalPerspectiveCase.testVerticalPerspectiveEllipsoidInverse(VerticalPerspectiveCase.java:92)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testGnomonicSphereForward took 0 sec
+Testcase: testGnomonicSphereInverse took 0 sec
+Testcase: testGnomonicNorthPole1 took 0 sec
+Testcase: testGnomonicSouthPole1 took 0 sec
+Testcase: testGnomonicSphericalStress1 took 0.015 sec
+Testcase: testLambertConformalConicSphereForward took 0.016 sec
+Testcase: testLambertConformalConicSphereInverse took 0 sec
+Testcase: testLambertConformalConicEllipsoidForward took 0 sec
+Testcase: testLambertConformalConicEllipsoidInverse took 0 sec
+Testcase: testLambertComputeQ took 0 sec
+Testcase: testLambertComputeQ2 took 0 sec
+Testcase: testLambertSphereForward took 0 sec
+Testcase: testLambertSphereInverse took 0 sec
+Testcase: testLambertEllipsoidForward took 0 sec
+Testcase: testLambertEllipsoidInverse took 0 sec
+Testcase: testLambertStress took 0 sec
+Testcase: testMapProjectionAzimuth1 took 0 sec
+Testcase: testMapProjectionAzimuth2 took 0 sec
+Testcase: testMapProjectionAzimuth3 took 0 sec
+Testcase: testMapProjectionAzimuth4 took 0 sec
+Testcase: testMapProjectionAzimuth5 took 0 sec
+Testcase: testGetDistance1 took 0 sec
+Testcase: testGetDistance1A took 0 sec
+Testcase: testGetDistance2A took 0 sec
+Testcase: testGetAzimuth2 took 0 sec
+Testcase: testGetDistance3A took 0 sec
+	FAILED
+expected:<1.0> but was:<1.359817980332081E-14>
+junit.framework.AssertionFailedError: expected:<1.0> but was:<1.359817980332081E-14>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at junit.framework.Assert.assertEquals(Assert.java:108)
+	at tests.MapProjectionCase.testGetDistance3A(MapProjectionCase.java:264)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testGetLatLon2GeneralForm took 0 sec
+Testcase: testGetLatLon2LAX took 0 sec
+Testcase: testComputeRhumbLine took 0 sec
+Testcase: testMercatorSphereForward took 0.016 sec
+Testcase: testMercatorSphereInverse took 0 sec
+Testcase: testMercatorEllipseForward took 0 sec
+Testcase: testMercatorEllipseInverse took 0 sec
+Testcase: testMercatorSphericalStress1 took 0 sec
+	FAILED
+forward lat, mp=[lat=89.0,lon=180.0] expected:<271.659> but was:<180.0>
+junit.framework.AssertionFailedError: forward lat, mp=[lat=89.0,lon=180.0] expected:<271.659> but was:<180.0>
+	at junit.framework.Assert.fail(Assert.java:47)
+	at junit.framework.Assert.failNotEquals(Assert.java:282)
+	at junit.framework.Assert.assertEquals(Assert.java:101)
+	at tests.MercatorCase.testMercatorSphericalStress1(MercatorCase.java:200)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)
+	at java.lang.reflect.Method.invoke(Method.java:585)
+	at junit.framework.TestCase.runTest(TestCase.java:154)
+	at junit.framework.TestCase.runBare(TestCase.java:127)
+	at junit.framework.TestResult$1.protect(TestResult.java:106)
+	at junit.framework.TestResult.runProtected(TestResult.java:124)
+	at junit.framework.TestResult.run(TestResult.java:109)
+	at junit.framework.TestCase.run(TestCase.java:118)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at junit.framework.TestSuite.runTest(TestSuite.java:208)
+	at junit.framework.TestSuite.run(TestSuite.java:203)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner.run(JUnitTestRunner.java:297)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeInVM(JUnitTask.java:1072)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:682)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.executeOrQueue(JUnitTask.java:1434)
+	at org.apache.tools.ant.taskdefs.optional.junit.JUnitTask.execute(JUnitTask.java:632)
+	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:275)
+	at org.apache.tools.ant.Task.perform(Task.java:364)
+	at org.apache.tools.ant.Target.execute(Target.java:341)
+	at org.apache.tools.ant.Target.performTasks(Target.java:369)
+	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1216)
+	at org.apache.tools.ant.Project.executeTarget(Project.java:1185)
+	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:40)
+	at org.apache.tools.ant.Project.executeTargets(Project.java:1068)
+	at org.apache.tools.ant.Main.runBuild(Main.java:668)
+	at org.apache.tools.ant.Main.startAnt(Main.java:187)
+	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:246)
+	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:67)
+
+Testcase: testMercatorSphericalStress2 took 0 sec
+Testcase: testMercatorSphericalStress3 took 0 sec
+Testcase: testMapProjectionMercator1 took 0 sec
+Testcase: testMapProjectionMercator2 took 0 sec
+Testcase: testMapProjectionMercator3 took 0 sec
+Testcase: testMapProjectionMercator4 took 0 sec
+Testcase: testMapProjectionMercator5 took 0 sec
+Testcase: testMercatorDistance took 0 sec
+Testcase: testMillerSphereForward took 0 sec
+Testcase: testMillerSphereInverse took 0 sec
+Testcase: testMillerSphericalStress took 0 sec
+Testcase: testOrthographicSphereForward took 0 sec
+Testcase: testOrthographicSphereInverse took 0 sec
+Testcase: testOrthographicStress took 0 sec
+Testcase: testPolyconicM took 0 sec
+Testcase: testPolyconicM0 took 0 sec
+Testcase: testPolyconicMP took 0 sec
+Testcase: testPolyconicSphereForward took 0 sec
+Testcase: testPolyconicSphereInverse took 0 sec
+Testcase: testPolyconicEllipsoidForward took 0 sec
+Testcase: testPolyconicEllipsoidInverse took 0 sec
+Testcase: testTransverseMercatorSphereForward took 0 sec
+Testcase: testTransverseMercatorSphereInverse took 0 sec
+Testcase: testTransverseMercatorSphericalStress took 0 sec
