@@ -1,79 +1,101 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 transitional//EN" "http://www.w3.org/tr/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<script language="JAVASCRIPT">
+	var coords = [ 0, 0, 1, 1 ];
 
-<HTML>
-<HEAD>
-<SCRIPT language="JAVASCRIPT">
+	window.onload = init;
 
-var svgdoc;
-var transform;
-var scale = 1.0;
-var lat = 0.0;
-var lon = 0.0;
+	function init() {
 
-window.onload = init;
+		initializeEvents(getGroupEl());
 
-function init() {
-	svgdoc = document.SVG.getSVGDocument();
-	transform = svgdoc.getElementById('transform');
-	
-	updateTime();
-	
-	setInterval('updateTime();', 1000);
-}
+		updateTime();
 
-function updateTime() {
-}
+		setInterval('updateTime();', 1000);
+	}
 
-function panLeft() {
-	transform.setTranslate(-scale*45.0, 0.0); 
-}
+	function initializeEvents(canvas) {
+		var lastPt = {
+			x : 0,
+			y : 0
+		};
+		var isDown = false;
 
-function panRight() {
-	transform.setTranslate(scale*45.0, 0.0);  
-}
+		canvas.onmousemove = function(e) {
+			var xVal = e.pageX - lastPt.x;
+			var yVal = e.pageY - lastPt.y;
 
-function panUp() {
-	transform.setTranslate(0.0, scale*45.0);  
-}
+			if (isDown) {
+				pan(coords, xVal, yVal);
+			}
 
-function panDown() {
-	transform.setTranslate(0.0, -scale*45.0); 
-}
+			lastPt = {
+				x : e.pageX,
+				y : e.pageY
+			};
+		};
 
-function zoomOut() {
-	scale = scale * 2.0;
-	transform.setScale(scale, scale); 
-}
+		canvas.onmousedown = function(e) {
+			isDown = true;
+			lastPt = {
+				x : e.pageX,
+				y : e.pageY
+			};
+		};
 
-function zoomIn() {
-	scale = scale * 0.5;
-	transform.setScale(scale, scale); 
-}
-</SCRIPT>
-</HEAD>
+		canvas.onmouseup = function(e) {
+			isDown = false;
+		};
+	}
 
-<BODY>
-<TABLE cellSpacing=0 cellPadding=0 width=750 border=0>
-<TBODY>
-	<TR>
-		<TD align=middle>
-			WORLD MAP DEMO
-		</TD>
-	<TR>
-		<TD align=middle>
-			<input type="button" value="Zoom+" onclick="return zoomIn()">
-			<input type="button" value="Zoom-" onclick="return zoomOut()">
-			<input type="button" value="PanUp" onclick="return panUp()">
-			<input type="button" value="PanDown" onclick="return panDown()">
-			<input type="button" value="PanLeft" onclick="return panLeft()">
-			<input type="button" value="PanRight" onclick="return panRight()">
-		</TD>
-  	<TR>
-    	<TD align=middle>  
-    	<embed name="SVG" src="world-1.svg" width="1024" height="1024" type="image/svg+xml"> 
-		</TD>
-	</TR>
-</TBODY>
-</TABLE>
-</BODY>
-</HTML>
+	function getGroupEl() {
+		var worldMapEl = document.querySelector("#world-map");
+		var mapDocument = worldMapEl.contentDocument;
+
+		return mapDocument.querySelector('#world-matrix-group');
+	}
+
+	function updateTime() {
+	}
+
+	function pan(coords, dx, dy) {
+		coords[0] = coords[0] + dx;
+		coords[1] = coords[1] + dy;
+		var transform = `translate(${coords[0]}, ${coords[1]})`;
+		getGroupEl().setAttribute('transform', transform);
+	}
+
+	function zoom(coords, factor) {
+		coords[2] = coords[2] * factor;
+		coords[3] = coords[3] * factor;
+		var transform = `scale(${coords[2]}, ${coords[3]})`;
+		getGroupEl().setAttribute('transform', transform);
+	}
+
+	function zoomIn() {
+		zoom(coords, 2.0);
+	}
+
+	function zoomOut() {
+		zoom(coords, 0.5);
+	}
+</script>
+</head>
+
+<body>
+	<table cellSpacing=0 cellPadding=0 width=750 border=0>
+		<tr>
+			<td>WORLD MAP DEMO</td>
+		</tr>
+		<tr>
+			<td><input type="button" value="Zoom+" onclick="return zoomIn( )" /> <input type="button"
+				value="Zoom-" onclick="return zoomOut( )" /></td>
+		</tr>
+		<tr>
+			<td><object id="world-map" type="image/svg+xml" width="1024" height="1024"
+					data="data/world-1.svg"> Your browser does not support SVG </object></td>
+		</tr>
+	</table>
+</body>
+</html>

@@ -1,28 +1,33 @@
 /*
- * --------------------------------------------------------------
- *               VIPER SOFTWARE SERVICES
- * --------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ *                      VIPER SOFTWARE SERVICES
+ * -----------------------------------------------------------------------------
  *
- * @(#)filename.java	1.00 2003/06/15
+ * MIT License
+ * 
+ * Copyright (c) #{classname}.html #{util.YYYY()} Viper Software Services
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE
  *
- * Copyright 1998-2003 by Viper Software Services
- * 36710 Nichols Ave, Fremont CA, 94536
- * All rights reserved.
- *
- * This software is the confidential and proprietary information
- * of Viper Software Services. ("Confidential Information").  You
- * shall not disclose such Confidential Information and shall use
- * it only in accordance with the terms of the license agreement
- * you entered into with Viper Software Services.
- *
- * @author Tom Nevin (TomNevin@pacbell.net)
- *
- * @version 1.0, 06/15/2003 
- *
- * @note 
- *        
- * ---------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
+
 
 package com.viper.projections;
 
@@ -48,16 +53,12 @@ public class VerticalPerspective extends MapProjection {
 		this.pAzimuth = pAzimuth;
 	}
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
 
+    /**
+     * {@inheritDoc}
+     *
+     */
+    @Override
 	public void toProjection(MapPoint mp, MapPoint pp) {
 
 		//  o Convert degree values to radians.
@@ -85,16 +86,12 @@ public class VerticalPerspective extends MapProjection {
 				* (cos(lat1) * sin(lat) - sin(lat1) * cos(lat) * cos(lon));
 	}
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
 
+    /**
+     * {@inheritDoc}
+     *
+     */
+    @Override
 	public void toLatLon(MapPoint pp, MapPoint mp) {
 
 		//  o Convert to Radians
@@ -133,18 +130,8 @@ public class VerticalPerspective extends MapProjection {
 
 		mp.lat = Lat * toDegrees;
 		mp.lon = Lon * toDegrees;
-	}
-
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
-
+	} 
+    
 	public String toString() {
 		return "\t" + getClass().getName() + "\n" + "\tEccentricity="
 				+ getEccentricity() + "\n" + "\tOriginLon=" + getOriginLon()

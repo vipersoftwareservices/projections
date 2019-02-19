@@ -1,23 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="world" default="all" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:jacoco="antlib:org.jacoco.ant">
-	<property name="common.home" value="${basedir}/../common" />
-	<property name="database.home" value="${basedir}/../database" />
-	<property file="${common.home}/build.properties" />
+
+	<!-- Note: Commons-confiuration goes into flume directory -->
+	<property environment="env" />
+
 	<property name="name" value="world" />
-	<property name="version" value="1.0" />
 	<property name="build.dir" value="${basedir}/build" />
+	<property name="map.dir" value="${basedir}/web/data" />
+	<property name="debug" value="true" />
+	<property name="debuglevel" value="source,lines,vars" />
+	<property name="deprecation" value="off" />
+	<property name="optimize" value="off" />
+	<property name="nowarn" value="on" />
+	<property name="jvm.deprecation" value="-Xlint:deprecation" />
+	<property name="jvm.args" value="-Xmx1024m -Xms256m " />
+	<property name="jvm.debug.args" value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000" />
+	<property name="target" value="1.8" />
+	<property name="source" value="1.8" />
+	<property name="test.name" value="Test*" />
+	<property name="database.name" value="world" />
+	<property name="test.url" value="http://localhost/projections" />
+	<property name="authorize.service.url" value="${test.url}/authorize/login" />
+	<property name="rest.service.url" value="${test.url}/classes/" />
+	<property name="web.service.url" value="${test.url}/web/classes/" />
+	<property name="war.service.name" value="world" />
+	<property name="tomcat.dir" value="tomcat" />
+	<property name="tomcat.home" value="/opt/${tomcat.dir}" />
+	<property name="service.name" value="TomEE" />
+	<property name="version" value="1.0" />
 	<property name="logfile" value="${basedir}/build/logs/test.log" />
+
 	<!-- =================================================================== -->
 	<!-- Defines the classpath used for compilation and test. -->
 	<!-- =================================================================== -->
 	<path id="classpath.main">
-		<pathelement location="${build.dir}/${name}.jar" />
-		<pathelement location="${database.home}/build/database.jar" />
 		<pathelement path="${build.dir}/classes" />
-		<fileset dir="${database.home}/lib" includes="**/*.jar" />
+		<pathelement location="${build.dir}/${name}.jar" />
+		<fileset dir="${basedir}/lib" includes="**/*.jar" />
 	</path>
 	<path id="classpath.tools">
-		<fileset dir="${database.home}/lib" includes="**/*.jar" />
+		<fileset dir="${basedir}/lib" includes="**/*.jar" />
 	</path>
 	<!-- =================================================================== -->
 	<!-- Task Definitions -->
@@ -30,7 +52,9 @@
 	<!-- =================================================================== -->
 	<target name="clean">
 		<delete quiet="true" dir="${build.dir}" />
+		<delete quiet="true" dir="${map.dir}" />
 		<delete quiet="true" dir="${basedir}/srcgen" />
+		<delete quiet="true" dir="${basedir}/doc/api" /> 
 	</target>
 	<!-- =================================================================== -->
 	<!-- Prepares the build directory -->
@@ -42,10 +66,21 @@
 		<mkdir dir="${build.dir}/logs" />
 		<mkdir dir="${build.dir}/maps" />
 		<mkdir dir="${build.dir}/reports/raw" />
+		<mkdir dir="${basedir}/doc/api" />
 		<mkdir dir="${basedir}/srcgen" />
+		<mkdir dir="${basedir}/lib/libdev" />
+		<mkdir dir="${basedir}/lib/libgen" />
+		<mkdir dir="${map.dir}" />
 	</target>
 	<!-- =================================================================== -->
-	<target name="srcgen" depends="prepare">
+	<!-- Update the junit in the ant directory -->
+	<!-- =================================================================== -->
+	<target name="resolve" depends="prepare">
+		<ivy:retrieve pattern="${basedir}/lib/[conf]/[artifact]-[revision].[ext]" conf="*" />
+		<ivy:report conf="*" todir="${build.dir}" />
+	</target>
+	<!-- =================================================================== -->
+	<target name="srcgen" depends="resolve">
 		<xjc schema="${basedir}/etc/world.xsd" destdir="${basedir}/srcgen" package="com.viper.world.model">
 			<arg value="-npa" />
 		</xjc>
@@ -54,8 +89,7 @@
 	<!-- Compile all sources -->
 	<!-- =================================================================== -->
 	<target name="compile" depends="srcgen">
-		<javac srcdir="srcgen:src:unit" destdir="${build.dir}/classes" nowarn="${nowarn}" debug="${debug}"
-			source="${source}" target="${target}" deprecation="${deprecation}" optimize="${optimize}">
+		<javac srcdir="srcgen:src:unit" destdir="${build.dir}/classes" nowarn="${nowarn}" debug="${debug}" source="${source}" target="${target}" deprecation="${deprecation}" optimize="${optimize}">
 			<classpath refid="classpath.main" />
 		</javac>
 	</target>
@@ -94,14 +128,20 @@
 			<fileset dir="${basedir}/web" excludes="WEB-INF/**" />
 			<fileset dir="${basedir}/etc" />
 			<lib dir="${build.dir}" includes="*.jar" />
-			<lib dir="${database.home}/build" includes="database.jar" />
-			<lib dir="${database.home}/lib" includes="*.*" />
+			<lib dir="${basedir}/lib" includes="*.jar" />
+			<lib dir="${basedir}/lib/libgen" includes="*.jar" />
+			<lib dir="${basedir}/lib/local" includes="*.jar" />
 		</war>
 	</target>
 	<!-- =================================================================== -->
 	<!-- deploy to server -->
 	<!-- =================================================================== -->
 	<target name="deploy" depends="war">
+		<delete quiet="true">
+			<fileset dir="${tomcat.home}/logs" includes="*.*" />
+			<fileset dir="${tomcat.home}/webapps/${name}" includes="*.*" />
+			<fileset dir="${tomcat.home}/webapps" includes="${name}.war" />
+		</delete>
 		<copy tofile="${tomcat.home}/webapps/${name}.war" flatten="true">
 			<fileset file="${build.dir}/${name}.war" />
 		</copy>
@@ -110,9 +150,7 @@
 	<!-- Creates the API documentation -->
 	<!-- =================================================================== -->
 	<target name="javadocs">
-		<javadoc packagenames="*" sourcepath="${basedir}/src" destdir="${basedir}/build/doc/api" author="true"
-			version="true" windowtitle="${Name} ${version} API" doctitle="${Name}"
-			footer="Copyright &amp;copy; 1997-2012 Viper Software. See &lt;a target=&quot;_top&quot; href=&quot;../license.html&quot;&gt;license agreement&lt;/A&gt; for rights granted.">
+		<javadoc packagenames="*" sourcepath="${basedir}/src" destdir="${basedir}/doc/api" author="true" version="true" windowtitle="${name} ${version} API" doctitle="${Name}" footer="Copyright &amp;copy; 1997-2019 Viper Software. See &lt;a target=&quot;_top&quot; href=&quot;../license.html&quot;&gt;license agreement&lt;/A&gt; for rights granted.">
 			<classpath refid="classpath.main" />
 		</javadoc>
 	</target>
@@ -122,26 +160,25 @@
 	<!-- =================================================================== -->
 	<target name="map-xml" depends="jar">
 		<echo message="LOGGING => ${logfile}" />
-		<java fork="true" classname="com.viper.tools.WDBII" classpathref="classpath.main" error="${logfile}"
-			append="true">
+		<java fork="true" classname="com.viper.tools.WDBII" classpathref="classpath.main" error="${logfile}" append="true">
 			<arg line="-res 3600" />
-			<arg line="-output ${build.dir}/maps/world-60.xml" />
-			<arg value="${basedir}/etc/wdbii/africa-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/africa-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/africa-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-pby.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-riv.txt" />
+			<arg line="-output ${map.dir}/world-60.xml" />
+			<arg value="${basedir}/etc/data/africa-bdy.txt" />
+			<arg value="${basedir}/etc/data/africa-cil.txt" />
+			<arg value="${basedir}/etc/data/africa-riv.txt" />
+			<arg value="${basedir}/etc/data/asia-bdy.txt" />
+			<arg value="${basedir}/etc/data/asia-cil.txt" />
+			<arg value="${basedir}/etc/data/asia-riv.txt" />
+			<arg value="${basedir}/etc/data/europe-bdy.txt" />
+			<arg value="${basedir}/etc/data/europe-cil.txt" />
+			<arg value="${basedir}/etc/data/europe-riv.txt" />
+			<arg value="${basedir}/etc/data/namer-bdy.txt" />
+			<arg value="${basedir}/etc/data/namer-cil.txt" />
+			<arg value="${basedir}/etc/data/namer-pby.txt" />
+			<arg value="${basedir}/etc/data/namer-riv.txt" />
+			<arg value="${basedir}/etc/data/samer-bdy.txt" />
+			<arg value="${basedir}/etc/data/samer-cil.txt" />
+			<arg value="${basedir}/etc/data/samer-riv.txt" />
 			<jvmarg line="${jvm.args}" />
 		</java>
 	</target>
@@ -153,23 +190,23 @@
 		<echo message="LOGGING => ${logfile}" />
 		<java classname="com.viper.tools.WorldToSVG" classpathref="classpath.main" error="${logfile}" append="true">
 			<arg line="-res 60" />
-			<arg line="-output ${build.dir}/maps/world-60.svg" />
-			<arg value="${basedir}/etc/wdbii/africa-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/africa-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/africa-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/asia-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/europe-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-pby.txt" />
-			<arg value="${basedir}/etc/wdbii/namer-riv.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-bdy.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-cil.txt" />
-			<arg value="${basedir}/etc/wdbii/samer-riv.txt" />
+			<arg line="-output ${map.dir}/world-60.svg" />
+			<arg value="${basedir}/etc/data/africa-bdy.txt" />
+			<arg value="${basedir}/etc/data/africa-cil.txt" />
+			<arg value="${basedir}/etc/data/africa-riv.txt" />
+			<arg value="${basedir}/etc/data/asia-bdy.txt" />
+			<arg value="${basedir}/etc/data/asia-cil.txt" />
+			<arg value="${basedir}/etc/data/asia-riv.txt" />
+			<arg value="${basedir}/etc/data/europe-bdy.txt" />
+			<arg value="${basedir}/etc/data/europe-cil.txt" />
+			<arg value="${basedir}/etc/data/europe-riv.txt" />
+			<arg value="${basedir}/etc/data/namer-bdy.txt" />
+			<arg value="${basedir}/etc/data/namer-cil.txt" />
+			<arg value="${basedir}/etc/data/namer-pby.txt" />
+			<arg value="${basedir}/etc/data/namer-riv.txt" />
+			<arg value="${basedir}/etc/data/samer-bdy.txt" />
+			<arg value="${basedir}/etc/data/samer-cil.txt" />
+			<arg value="${basedir}/etc/data/samer-riv.txt" />
 			<jvmarg line="${jvm.args}" />
 		</java>
 	</target>
@@ -180,28 +217,28 @@
 	<target name="map-main" depends="jar">
 		<echo message="LOGGING => ${logfile}" />
 		<java classname="com.viper.tools.WorldMain" classpathref="classpath.main" error="${logfile}" append="true">
-			<arg line="-svg 0.1 ${build.dir}/maps/world-1.svg" />
-			<arg line="-coastline ${basedir}/etc/wdbii/africa-cil.txt" />
-			<arg line="-coastline ${basedir}/etc/wdbii/asia-cil.txt" />
-			<arg line="-coastline ${basedir}/etc/wdbii/europe-cil.txt" />
-			<arg line="-coastline ${basedir}/etc/wdbii/namer-cil.txt" />
-			<arg line="-coastline ${basedir}/etc/wdbii/samer-cil.txt" />
-			<arg line="-river ${basedir}/etc/wdbii/africa-riv.txt" />
-			<arg line="-river ${basedir}/etc/wdbii/asia-riv.txt" />
-			<arg line="-river ${basedir}/etc/wdbii/europe-riv.txt" />
-			<arg line="-river ${basedir}/etc/wdbii/namer-riv.txt" />
-			<arg line="-river ${basedir}/etc/wdbii/samer-riv.txt" />
-			<arg line="-boundary ${basedir}/etc/wdbii/africa-bdy.txt" />
-			<arg line="-boundary ${basedir}/etc/wdbii/asia-bdy.txt" />
-			<arg line="-boundary ${basedir}/etc/wdbii/europe-bdy.txt" />
-			<arg line="-boundary ${basedir}/etc/wdbii/namer-bdy.txt" />
-			<arg line="-boundary ${basedir}/etc/wdbii/samer-bdy.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/africa-cil.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/asia-cil.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/europe-cil.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/namer-cil.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/samer-cil.txt" />
-			<arg line="-states ${basedir}/etc/wdbii/namer-pby.txt" />
+			<arg line="-svg 0.1 ${map.dir}/world-1.svg" />
+			<arg line="-coastline ${basedir}/etc/data/africa-cil.txt" />
+			<arg line="-coastline ${basedir}/etc/data/asia-cil.txt" />
+			<arg line="-coastline ${basedir}/etc/data/europe-cil.txt" />
+			<arg line="-coastline ${basedir}/etc/data/namer-cil.txt" />
+			<arg line="-coastline ${basedir}/etc/data/samer-cil.txt" />
+			<arg line="-river ${basedir}/etc/data/africa-riv.txt" />
+			<arg line="-river ${basedir}/etc/data/asia-riv.txt" />
+			<arg line="-river ${basedir}/etc/data/europe-riv.txt" />
+			<arg line="-river ${basedir}/etc/data/namer-riv.txt" />
+			<arg line="-river ${basedir}/etc/data/samer-riv.txt" />
+			<arg line="-boundary ${basedir}/etc/data/africa-bdy.txt" />
+			<arg line="-boundary ${basedir}/etc/data/asia-bdy.txt" />
+			<arg line="-boundary ${basedir}/etc/data/europe-bdy.txt" />
+			<arg line="-boundary ${basedir}/etc/data/namer-bdy.txt" />
+			<arg line="-boundary ${basedir}/etc/data/samer-bdy.txt" />
+			<arg line="-states ${basedir}/etc/data/africa-cil.txt" />
+			<arg line="-states ${basedir}/etc/data/asia-cil.txt" />
+			<arg line="-states ${basedir}/etc/data/europe-cil.txt" />
+			<arg line="-states ${basedir}/etc/data/namer-cil.txt" />
+			<arg line="-states ${basedir}/etc/data/samer-cil.txt" />
+			<arg line="-states ${basedir}/etc/data/namer-pby.txt" />
 			<arg line="-cities ${basedir}/docs/latlng.txt" />
 			<arg line="-labels ${basedir}/docs/labels.txt" />
 			<!-- <arg line="-connections ${basedir}/docs/connect.txt" /> -->
@@ -214,7 +251,7 @@
 	<!-- =================================================================== -->
 	<target name="viewer">
 		<java classname="com.viper.tools.WorldParser" fork="true" dir="${basedir}">
-			<arg line="-xml results/world-60.xml" />
+			<arg line="-xml etc/maps/world-60.xml" />
 			<arg line="-show" />
 			<classpath refid="classpath.main" />
 			<jvmarg line="${jvm.args}" />
@@ -232,21 +269,23 @@
 	<target name="jacoco-report">
 		<jacoco:report>
 			<executiondata>
-				<file file="jacoco.exec" />
+				<file file="${build.dir}/jacoco.exec" />
 			</executiondata>
-			<structure name="World Project">
+			<structure name="Projectionss Project">
 				<classfiles>
 					<fileset dir="${build.dir}/classes" />
 				</classfiles>
 				<sourcefiles encoding="UTF-8">
 					<fileset dir="${basedir}/src" />
+					<fileset dir="${basedir}/srcgen" />
+					<fileset dir="${basedir}/unit" />
 				</sourcefiles>
 			</structure>
 			<html destdir="${build.dir}/jacoco/" />
 		</jacoco:report>
 	</target>
 	<target name="junit">
-		<jacoco:coverage>
+		<jacoco:coverage destfile="${build.dir}/jacoco.exec">
 			<junit fork="true" forkmode="once" printsummary="yes" haltonfailure="no" showoutput="yes" timeout="6000000">
 				<sysproperty key="jub.consumers" value="H2" />
 				<sysproperty key="jub.charts.dir" value="${basedir}/benchmarks" />
@@ -256,9 +295,8 @@
 					<path refid="classpath.main" />
 				</classpath>
 				<formatter type="xml" />
-				<batchtest fork="no" haltonfailure="no" todir="${build.dir}/reports/raw">
+				<batchtest fork="true" haltonfailure="no" todir="${build.dir}/reports/raw">
 					<fileset dir="${basedir}/unit" includes="com/viper/**/Test*.java" />
-					<fileset dir="${basedir}/unit" includes="tests/Test*.java" />
 					<fileset dir="${basedir}/srcgen" includes="com/viper/**/Test*.java" />
 					<formatter type="xml" />
 				</batchtest>
@@ -269,7 +307,8 @@
 	</target>
 	<!-- =================================================================== -->
 	<target name="maps" depends="map-xml,map-svg,map-main" />
-	<target name="test" depends="junit,junit-report,jacoco-report" />
-	<target name="cruise-control" depends="clean,jar,test,javadocs" />
-	<target name="all" depends="clean,war,src.jar,test" />
+	<target name="test" depends="junit,junit-report " />
+	<target name="cruise-control" depends="release" />
+	<target name="release" depends="clean,all,src.jar,javadocs" /> 
+	<target name="all" depends="jar,maps,war,test,deploy" />
 </project>

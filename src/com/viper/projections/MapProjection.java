@@ -1,22 +1,30 @@
 /*
- * --------------------------------------------------------------
- *               VIPER SOFTWARE SERVICES
- * --------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ *                      VIPER SOFTWARE SERVICES
+ * -----------------------------------------------------------------------------
  *
- * @(#)Navigation.java	1.00 2003/06/15
- *
- * Copyright 1998-2002 by Viper Software Services
- * 36710 Nichols Ave, Fremont CA, 94536
- * All rights reserved.
- *
- * This software is the confidential and proprietary information
- * of Viper Software Services. ("Confidential Information").  You
- * shall not disclose such Confidential Information and shall use
- * it only in accordance with the terms of the license agreement
- * you entered into with Viper Software Services.
- *
- * @author Tom Nevin (TomNevin@pacbell.net)
- *
+ * MIT License
+ * 
+ * Copyright (c) #{classname}.html #{util.YYYY()} Viper Software Services
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE
+ * 
  * @version 1.0, 06/15/2003, Original version
  *
  * @note 
@@ -36,8 +44,8 @@
  *		An Album of Map Projections
  *		US Geological Survey
  * 		Professional Paper 1453
- *        
- * ---------------------------------------------------------------
+ *  
+ * -----------------------------------------------------------------------------
  */
 
 package com.viper.projections;
@@ -49,18 +57,13 @@ import java.util.Map;
 
 public abstract class MapProjection {
 
-    public final double PI = Math.PI;
-
-    public final double toRadians = Math.PI / 180.0;
-
-    public final double toDegrees = 180.0 / Math.PI;
-
+    public final double PI = Math.PI; 
+    public final double toRadians = Math.PI / 180.0; 
+    public final double toDegrees = 180.0 / Math.PI; 
     public final double INFINITY = 3.0E25; // SUN 386i // TBD
 
-    // Conversion of meters to Nautical Miles
-
-    public final double MetersToNauticalMiles = 0.00053999568;
-
+    // Conversion of meters to Nautical Miles 
+    public final double MetersToNauticalMiles = 0.00053999568; 
     public final double NauticalMilesToMeters = 1852.0;
 
     // Ellipsoid Data
@@ -99,32 +102,25 @@ public abstract class MapProjection {
     // 19 Sphere 6370997.0 6370997.0
     //
     // International Ellipsoid
-    public final double InternationalEccentricity = 0.08199188984;
-
+    public final double InternationalEccentricity = 0.08199188984; 
     public final double InternationalRadius = 6378388.0;
 
     // WGS84 Ellipsoid
-    public final double WGS84_Eccentricity = 0.0818191908426;
-
-    public final double WGS84_MajorRadius = 6378137.0;
-
+    public final double WGS84_Eccentricity = 0.0818191908426; 
+    public final double WGS84_MajorRadius = 6378137.0; 
     public final double WGS84_MinorRadius = 6356752.3142;
 
     // GRS80/NAD83
-    public final double GRS80_Eccentricity = 0.081819191043;
-
-    public final double GRS80_MajorRadius = 6378137.0;
-
+    public final double GRS80_Eccentricity = 0.081819191043; 
+    public final double GRS80_MajorRadius = 6378137.0; 
     public final double GRS80_MinorRadius = 6356752.314;
 
     // WGS66 Ellipsoid
-    public final double WGS66_Eccentricity = 0.0; // TBD
-
+    public final double WGS66_Eccentricity = 0.0; // TBD 
     public final double WGS66_MajorRadius = 6378145.0;
 
     // GRS67/IAU68 Ellipsoid
-    public final double GRS67_Eccentricity = 0.0; // TBD
-
+    public final double GRS67_Eccentricity = 0.0; // TBD 
     public final double GRS67_MajorRadius = 6378160.0;
 
     public final double IAU68_Eccentricity = 0.0; // TBD
@@ -172,14 +168,10 @@ public abstract class MapProjection {
 
     // Projection Parameters
 
-    double originLat = 0.0;
-
-    double originLon = 0.0;
-
-    double eccentricity = 0.0;
-
-    double radius = toDegrees;
-
+    double originLat = 0.0; 
+    double originLon = 0.0; 
+    double eccentricity = 0.0; 
+    double radius = toDegrees; 
     double convergence = 0.0;
 
     // Standard Parallel #1, a latitude.
@@ -269,6 +261,11 @@ public abstract class MapProjection {
 
     public abstract void toLatLon(MapPoint pp, MapPoint mp);
 
+    /**
+     * 
+     * @param ma
+     * @param pa
+     */
     public void toProjection(Grid ma, Grid pa) {
 
         MapPoint pt = new MapPoint();
@@ -291,6 +288,11 @@ public abstract class MapProjection {
         pa.setWest(pp.lon);
     }
 
+    /**
+     * 
+     * @param pa
+     * @param ma
+     */
     public void toLatLon(Grid pa, Grid ma) {
 
         MapPoint pt = new MapPoint();
@@ -314,16 +316,10 @@ public abstract class MapProjection {
     }
 
     /**
-     * ----------------------------------------------------------
-     **
-     **
-     ** @param
-     ** @return
-     ** @exception
-     **
-     **                ----------------------------------------------------------
-     **/
-
+     * 
+     * @param mpList
+     * @param ppList
+     */
     public void toProjection(List<MapPoint> mpList, List<MapPoint> ppList) {
 
         for (int i = 0; i < mpList.size(); i++) {
@@ -426,14 +422,13 @@ public abstract class MapProjection {
     }
 
     /**
-     * ----------------------------------------------------------
-     **
-     ** F = (MajorRadius - MinorRadius) / MajorRadius E = sqrt(2F-F*F).
-     **
-     **
-     ** ----------------------------------------------------------
-     **/
-
+     * 
+     * @param MajorRadius
+     * @param MinorRadius
+     * @return
+     * 
+     *         F = (MajorRadius - MinorRadius) / MajorRadius E = sqrt(2F-F*F).
+     */
     public double computeEccentricity(double MajorRadius, double MinorRadius) {
 
         double F = (MajorRadius - MinorRadius) / MajorRadius;

@@ -1,346 +1,321 @@
 /*
- * --------------------------------------------------------------
- *               VIPER SOFTWARE SERVICES
- * --------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ *                      VIPER SOFTWARE SERVICES
+ * -----------------------------------------------------------------------------
  *
- * @(#)filename.java	1.00 2003/06/15
+ * MIT License
+ * 
+ * Copyright (c) #{classname}.html #{util.YYYY()} Viper Software Services
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE
  *
- * Copyright 1998-2003 by Viper Software Services
- * 36710 Nichols Ave, Fremont CA, 94536
- * All rights reserved.
- *
- * This software is the confidential and proprietary information
- * of Viper Software Services. ("Confidential Information").  You
- * shall not disclose such Confidential Information and shall use
- * it only in accordance with the terms of the license agreement
- * you entered into with Viper Software Services.
- *
- * @author Tom Nevin (TomNevin@pacbell.net)
- *
- * @version 1.0, 06/15/2003 
- *
- * @note 
- *        
- * ---------------------------------------------------------------
+ * -----------------------------------------------------------------------------
  */
 
 package com.viper.projections;
 
 public class UTM extends MapProjection {
 
-	TransverseMercator tm = new TransverseMercator();
+    TransverseMercator tm = new TransverseMercator();
 
-	public UTM() {
-	}
+    public UTM() {
+    }
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
+    /**
+     * 
+     * @param center
+     */
+    public void setNAD27(MapPoint center) {
 
-	public void setNAD27(MapPoint center) {
+        // --------------------------------------------------------------
+        // o Generate Origin
+        // --------------------------------------------------------------
 
-		//--------------------------------------------------------------
-		//  o Generate Origin
-		//--------------------------------------------------------------
+        int ZONE = 30 - (int) (center.lon / 6.0);
+        int CM = 183 - 6 * ZONE;
 
-		int ZONE = 30 - (int) (center.lon / 6.0);
-		int CM = 183 - 6 * ZONE;
+        // --------------------------------------------------------------
+        // o Generate Eccentricity and Flattening
+        // --------------------------------------------------------------
 
-		//--------------------------------------------------------------
-		//  o Generate Eccentricity and Flattening
-		//--------------------------------------------------------------
+        double R = 6378206.4;
+        double F = 1.0 / 294.978698;
+        double E = F + F - F * F;
 
-		double R = 6378206.4;
-		double F = 1.0 / 294.978698;
-		double E = F + F - F * F;
+        setOriginLon((double) CM);
+        setOriginLat(0.0);
+        setEccentricity(E);
+        setRadius(R);
+    }
 
-		setOriginLon((double) CM);
-		setOriginLat(0.0);
-		setEccentricity(E);
-		setRadius(R);
-	}
+    /**
+     * 
+     * @param center
+     */
+    public void setNAD83(MapPoint center) {
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
+        // --------------------------------------------------------------
+        // o Generate Origin
+        // --------------------------------------------------------------
 
-	public void setNAD83(MapPoint center) {
+        int ZONE = 30 - (int) (center.lon / 6.0);
+        int CM = 183 - 6 * ZONE;
 
-		//--------------------------------------------------------------
-		//  o Generate Origin
-		//--------------------------------------------------------------
+        // --------------------------------------------------------------
+        // o Generate Eccentricity and Flattening
+        // --------------------------------------------------------------
 
-		int ZONE = 30 - (int) (center.lon / 6.0);
-		int CM = 183 - 6 * ZONE;
+        double R = 6378137.0;
+        double F = 1.0 / 298.257222101;
+        double E = F + F - F * F;
 
-		//--------------------------------------------------------------
-		//  o Generate Eccentricity and Flattening
-		//--------------------------------------------------------------
+        setOriginLon((double) CM);
+        setOriginLat(0.0);
+        setEccentricity(E);
+        setRadius(R);
+    }
 
-		double R = 6378137.0;
-		double F = 1.0 / 298.257222101;
-		double E = F + F - F * F;
+    /**
+     * {@inheritDoc}
+     *
+     */
+    @Override
+    public void toProjection(MapPoint mp, MapPoint pp) {
 
-		setOriginLon((double) CM);
-		setOriginLat(0.0);
-		setEccentricity(E);
-		setRadius(R);
-	}
+        double R, F, E;
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
+        // --------------------------------------------------------------
+        // o Generate Origin
+        // --------------------------------------------------------------
 
-	public void toProjection(MapPoint mp, MapPoint pp) {
+        int ZONE = 30 - (int) (mp.lon / 6.0);
+        int CM = 183 - 6 * ZONE;
 
-		double R, F, E;
+        double lon = (double) CM;
+        double lat = 0.0;
 
-		//--------------------------------------------------------------
-		//  o Generate Origin
-		//--------------------------------------------------------------
+        // --------------------------------------------------------------
+        // o Generate Eccentricity and Flattening
+        // --------------------------------------------------------------
 
-		int ZONE = 30 - (int) (mp.lon / 6.0);
-		int CM = 183 - 6 * ZONE;
+        //
+        // o NAD 27
+        //
+        R = 6378206.4;
+        F = 1.0 / 294.978698;
+        E = F + F - F * F;
 
-		double lon = (double) CM;
-		double lat = 0.0;
+        //
+        // o NAD 83
+        //
+        R = 6378137.0;
+        F = 1.0 / 298.257222101;
+        E = F + F - F * F;
 
-		//--------------------------------------------------------------
-		//  o Generate Eccentricity and Flattening
-		//--------------------------------------------------------------
+        // --------------------------------------------------------------
+        // o Project to Transverse Mercator
+        // --------------------------------------------------------------
 
-		//
-		//  o NAD 27
-		//
-		R = 6378206.4;
-		F = 1.0 / 294.978698;
-		E = F + F - F * F;
+        tm.setOriginLat(lat);
+        tm.setOriginLon(lon);
+        tm.setEccentricity(E);
+        tm.setRadius(R);
 
-		//
-		//  o NAD 83
-		//
-		R = 6378137.0;
-		F = 1.0 / 298.257222101;
-		E = F + F - F * F;
+        tm.toProjection(mp, pp);
+    }
 
-		//--------------------------------------------------------------
-		//  o Project to Transverse Mercator
-		//--------------------------------------------------------------
+    /**
+     * {@inheritDoc}
+     *
+     */
+    @Override
+    public void toLatLon(MapPoint pp, MapPoint mp) {
 
-		tm.setOriginLat(lat);
-		tm.setOriginLon(lon);
-		tm.setEccentricity(E);
-		tm.setRadius(R);
+        double R, F, E;
 
-		tm.toProjection(mp, pp);
-	}
+        // --------------------------------------------------------------
+        // o Generate Origin
+        // --------------------------------------------------------------
 
-	/** ----------------------------------------------------------
-	 **
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
+        int ZONE = 30 - (int) (getOriginLon() / 6.0);
+        int CM = 183 - 6 * ZONE;
 
-	public void toLatLon(MapPoint pp, MapPoint mp) {
+        double olon = (double) CM;
+        double olat = 0.0;
 
-		double R, F, E;
+        // --------------------------------------------------------------
+        // o Generate Eccentricity and Flattening
+        // --------------------------------------------------------------
+        //
+        // o NAD 27
+        //
+        R = 6378206.4;
+        F = 1.0 / 294.978698;
+        E = F + F - F * F;
 
-		//--------------------------------------------------------------
-		//  o Generate Origin
-		//--------------------------------------------------------------
+        //
+        // o NAD 83
+        //
+        R = 6378137.0;
+        F = 1.0 / 298.257222101;
+        E = F + F - F * F;
 
-		int ZONE = 30 - (int) (getOriginLon() / 6.0);
-		int CM = 183 - 6 * ZONE;
+        // --------------------------------------------------------------
+        // o Project to Transverse Mercator
+        // --------------------------------------------------------------
 
-		double olon = (double) CM;
-		double olat = 0.0;
+        tm.setOriginLat(olat);
+        tm.setOriginLon(olon);
+        tm.setEccentricity(E);
+        tm.setRadius(R);
 
-		//--------------------------------------------------------------
-		//  o Generate Eccentricity and Flattening
-		//--------------------------------------------------------------
-		//
-		//  o NAD 27
-		//
-		R = 6378206.4;
-		F = 1.0 / 294.978698;
-		E = F + F - F * F;
+        tm.toLatLon(pp, mp);
+    }
 
-		//
-		//  o NAD 83
-		//
-		R = 6378137.0;
-		F = 1.0 / 298.257222101;
-		E = F + F - F * F;
+    /**
+     * 
+     * @param utm
+     * @param tm
+     * 
+     *            Example: 32U LA 1234 1234
+     */
 
-		//--------------------------------------------------------------
-		//  o Project to Transverse Mercator
-		//--------------------------------------------------------------
+    public void toTransvereMercator(String utm, MapPoint tm) {
 
-		tm.setOriginLat(olat);
-		tm.setOriginLon(olon);
-		tm.setEccentricity(E);
-		tm.setRadius(R);
+        double LAT, LON;
 
-		tm.toLatLon(pp, mp);
-	}
+        //
+        // Pull out Longitude Grid Designator 1.
+        //
+        int index1 = 0;
+        int index2 = 0;
+        for (int i = 0; i < utm.length(); i++) {
+            char c = utm.charAt(i);
+            if (c < '0' || c > '9') {
+                break;
+            }
+            index2 = i;
+        }
 
-	/** ----------------------------------------------------------
-	 **
-	 ** Example: 32U LA 1234 1234
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
+        int LON_GRID_1 = toInt(utm.substring(index1, index2));
 
-	public void toTransvereMercator(String utm, MapPoint tm) {
+        //
+        // Pull out Latitude Grid Designator 1.
+        //
+        index1 = index2 + 1;
+        int LAT_GRID_1 = (int) (utm.charAt(index1) - 'A');
 
-		double LAT, LON;
+        //
+        // Pull out Longitude Grid Designator 2.
+        //
+        index1 = index1 + 1;
+        int LON_GRID_2 = (int) (utm.charAt(index1) - 'A');
 
-		//
-		// Pull out Longitude Grid Designator 1.
-		//
-		int index1 = 0;
-		int index2 = 0;
-		for (int i = 0; i < utm.length(); i++) {
-			char c = utm.charAt(i);
-			if (c < '0' || c > '9') {
-				break;
-			}
-			index2 = i;
-		}
+        //
+        // Pull out Latitude Grid Designator 2.
+        //
+        index1 = index1 + 1;
+        int LAT_GRID_2 = (int) (utm.charAt(index1) - 'A');
 
-		int LON_GRID_1 = toInt(utm.substring(index1, index2));
+        //
+        // Determine Depth of Designator 3.
+        //
+        index1 = index1 + 1;
+        int size = utm.length() - index1 + 1;
 
-		//
-		// Pull out Latitude Grid Designator 1.
-		//
-		index1 = index2 + 1;
-		int LAT_GRID_1 = (int) (utm.charAt(index1) - 'A');
+        if ((size & 2) == 1) {
+            new Exception("UTM_TO_TM.STRING SIZE ERROR").printStackTrace();
+        }
 
-		//
-		// Pull out Longitude Grid Designator 2.
-		//
-		index1 = index1 + 1;
-		int LON_GRID_2 = (int) (utm.charAt(index1) - 'A');
+        size = size / 2;
 
-		//
-		// Pull out Latitude Grid Designator 2.
-		//
-		index1 = index1 + 1;
-		int LAT_GRID_2 = (int) (utm.charAt(index1) - 'A');
+        //
+        // Pull out Longitude Grid Designator 3.
+        //
+        index2 = index1 + size - 1;
+        int LON_GRID_3 = toInt(utm.substring(index1, index2));
 
-		//
-		// Determine Depth of Designator 3.
-		//
-		index1 = index1 + 1;
-		int size = utm.length() - index1 + 1;
+        //
+        // Pull out Latitude Grid Designator 3.
+        //
+        index1 = index2 + 1;
+        index2 = utm.length();
+        int LAT_GRID_3 = toInt(utm.substring(index1, index2));
 
-		if ((size & 2) == 1) {
-			new Exception("UTM_TO_TM.STRING SIZE ERROR").printStackTrace();
-		}
+        //
+        // Deal with Polar Regions.
+        //
+        if (LAT_GRID_1 < 2 || LAT_GRID_1 > 23) {
+            new Exception("UTM_TO_TM.OUTSIDE_CENTRAL_REGION_ERROR.").printStackTrace();
+        }
 
-		size = size / 2;
+        //
+        // Determine the Zone Origin
+        //
+        if (LAT_GRID_1 > 7) {
+            LAT_GRID_1 = LAT_GRID_1 - 1;
+            if (LAT_GRID_1 > 12) {
+                LAT_GRID_1 = LAT_GRID_1 - 1;
+            }
+        }
 
-		//
-		// Pull out Longitude Grid Designator 3.
-		//
-		index2 = index1 + size - 1;
-		int LON_GRID_3 = toInt(utm.substring(index1, index2));
+        if (LAT_GRID_1 > 2 && LAT_GRID_1 < 21) {
+            LAT = (double) ((LAT_GRID_1 - 2) * 8 - 72);
+        } else {
+            LAT = (double) ((LAT_GRID_1 - 2) * 8 - 84);
+        }
 
-		//
-		// Pull out Latitude Grid Designator 3.
-		//
-		index1 = index2 + 1;
-		index2 = utm.length();
-		int LAT_GRID_3 = toInt(utm.substring(index1, index2));
+        LON = (double) (((LON_GRID_1 - 1) * 6) - 177);
 
-		//
-		// Deal with Polar Regions.
-		//
-		if (LAT_GRID_1 < 2 || LAT_GRID_1 > 23) {
-			new Exception("UTM_TO_TM.OUTSIDE_CENTRAL_REGION_ERROR.")
-					.printStackTrace();
-		}
+        //
+        // Special Cases.
+        //
+        if (LON == 3.0 && LAT == 56.0) {
+            LON = 1.5;
+        } else if (LON == 9.0 && LAT == 56.0) {
+            LON = 7.5;
+        } else if (LON == 3.0 && LAT == 72.0) {
+            LON = 4.5;
+        } else if (LON == 9.0 && LAT == 72.0) {
+            LON = 4.5;
+        } else if (LON == 15.0 && LAT == 72.0) {
+            LON = 15.0;
+        } else if (LON == 21.0 && LAT == 72.0) {
+            LON = 15.0;
+        } else if (LON == 27.0 && LAT == 72.0) {
+            LON = 27.0;
+        } else if (LON == 33.0 && LAT == 72.0) {
+            LON = 27.0;
+        } else if (LON == 39.0 && LAT == 72.0) {
+            LON = 37.5;
+        }
+    }
+ 
+    /**
+     * 
+     * @param tm
+     * @return
+     * 
+     *             Example: 32U LA 1234 1234
+     */
 
-		//
-		// Determine the Zone Origin
-		//
-		if (LAT_GRID_1 > 7) {
-			LAT_GRID_1 = LAT_GRID_1 - 1;
-			if (LAT_GRID_1 > 12) {
-				LAT_GRID_1 = LAT_GRID_1 - 1;
-			}
-		}
-
-		if (LAT_GRID_1 > 2 && LAT_GRID_1 < 21) {
-			LAT = (double) ((LAT_GRID_1 - 2) * 8 - 72);
-		} else {
-			LAT = (double) ((LAT_GRID_1 - 2) * 8 - 84);
-		}
-
-		LON = (double) (((LON_GRID_1 - 1) * 6) - 177);
-
-		//
-		// Special Cases.
-		//
-		if (LON == 3.0 && LAT == 56.0) {
-			LON = 1.5;
-		} else if (LON == 9.0 && LAT == 56.0) {
-			LON = 7.5;
-		} else if (LON == 3.0 && LAT == 72.0) {
-			LON = 4.5;
-		} else if (LON == 9.0 && LAT == 72.0) {
-			LON = 4.5;
-		} else if (LON == 15.0 && LAT == 72.0) {
-			LON = 15.0;
-		} else if (LON == 21.0 && LAT == 72.0) {
-			LON = 15.0;
-		} else if (LON == 27.0 && LAT == 72.0) {
-			LON = 27.0;
-		} else if (LON == 33.0 && LAT == 72.0) {
-			LON = 27.0;
-		} else if (LON == 39.0 && LAT == 72.0) {
-			LON = 37.5;
-		}
-	}
-
-	/** ----------------------------------------------------------
-	 **
-	 ** Example: 32U LA 1234 1234
-	 **
-	 ** @param
-	 ** @return
-	 ** @exception
-	 **
-	 ** ----------------------------------------------------------
-	 **/
-
-	public String toUTM(MapPoint tm) {
-		return null;
-	}
+    public String toUTM(MapPoint tm) {
+        return null;
+    }
 }

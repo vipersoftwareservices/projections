@@ -1,17 +1,33 @@
 /*
- * @(#)Filename.java	1.00 2002/07/15
+ * -----------------------------------------------------------------------------
+ *                      VIPER SOFTWARE SERVICES
+ * -----------------------------------------------------------------------------
  *
- * Copyright 1998-2002 by Viper Software Services
- * All rights reserved.
+ * MIT License
+ * 
+ * Copyright (c) #{classname}.html #{util.YYYY()} Viper Software Services
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE
  *
- * This software is the confidential and proprietary information
- * of Viper Software Services. ("Confidential Information").  You
- * shall not disclose such Confidential Information and shall use
- * it only in accordance with the terms of the license agreement
- * you entered into with Viper Software Services.
- *
- * @Author Tom Nevin (TomNevin@pacbell.net)
+ * -----------------------------------------------------------------------------
  */
+
 
 package com.viper.tools;
 
@@ -27,7 +43,6 @@ import com.viper.world.model.Segment;
 import com.viper.world.model.WorldData;
 
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.beans.property.StringProperty;
 import javafx.beans.property.adapter.JavaBeanStringPropertyBuilder;
 import javafx.event.ActionEvent;
@@ -55,7 +70,7 @@ public class WorldParser extends Application {
     private MapProjection projection = MapProjection.getInstance("Passthru");
     private Grid worldXY = new Grid(-180.0, 180.0, -180.0, 180.0);
     private Grid world = new Grid(-180.0, 180.0, -180.0, 180.0);
-    private String xmlfilename = "results/world-60.xml";
+    private String xmlfilename = "etc/maps/world-60.xml";
     private int width = 500;
     private int height = 500;
 

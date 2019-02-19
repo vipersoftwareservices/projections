@@ -1,26 +1,37 @@
 ![alt PROJECTIONS banner](doc/images/viper-wide-banner.jpg)
 
-# PROJECTIONS (In Progress)
+# PROJECTIONS  
 
-[PROJECTIONS](http://www.tnevin.com)
+PROJECTIONS is a java library which implements calculations for mapping applications. 
 
-PROJECTIONS is a simple javascript page which performs calculation and graphing functions for entered expressions. 
-
-[PROJECTIONS](http://www.tnevin.com/projections/) view the projections
+* [Getting Started](#getting-started) 
+* [API JavaDocs ](doc/api/index.html) 
+* [View Projections](http://www.tnevin.com/projections/) View the projections
+* [Authors Home Page](http://www.tnevin.com) In progress
 
 ## Features
 
-PROJECTIONS is an online web tool and has the following features:
-
-* Perform functions as in a projections
-* Render graphs of the entered equations 
-
-
-## Additional Documentation
-
-In progress: 
-* [Authors Home Page](http://www.tnevin.com)
-
+The following is a list of the mapping projections provided:
+1. Albers
+2. Azimuthal
+3. Bonne
+4. Cassini
+5. Cylindrical Equal Area
+6. Equidistant Conic
+7. Equidistant Cylindrical
+8. Gnomonic
+9. Lambert Conformal Conic
+10. Lambert Equal Area
+11. Mercator
+12. Miller
+13. Orthographic
+14. Polyconic
+15. Space Oblique Mercator (in Progress)
+16. Stereographic
+17. Transverse Mercator
+18. Universal Transerse Mercator
+19. Vertical Perspective
+  
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine.
@@ -35,7 +46,7 @@ What things you need to install the software and how to install them
 * For Windows, install CygWin, latest.
 ```
 
-Note: ant commands have been run and tested using cygwin bash shell, dos shell, and other linux shells will probably work.
+Note: ant commands have been run and tested using cygwin bash shell. Dos shell, and other linux shells will probably work.
 
 ### Installing
 
@@ -73,15 +84,7 @@ For windows, double click the file in the disk explorer, the location of the fil
 ```
 <install-directory>/build/jacoco/index.html
 ```
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
+ 
 ### And coding style tests
 
 Check on coding style by running:
