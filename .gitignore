@@ -1,7 +1,8 @@
 #
+benchmarks
 bin
 build
-benchmarks
+lib/libgen
+lib/libdev
 srcgen
-lib
 .cvsignore

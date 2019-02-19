@@ -54,7 +54,7 @@
 		<delete quiet="true" dir="${build.dir}" />
 		<delete quiet="true" dir="${map.dir}" />
 		<delete quiet="true" dir="${basedir}/srcgen" />
-		<delete quiet="true" dir="${basedir}/doc/api" /> 
+		<delete quiet="true" dir="${basedir}/doc/api" />
 	</target>
 	<!-- =================================================================== -->
 	<!-- Prepares the build directory -->
@@ -305,10 +305,12 @@
 			</junit>
 		</jacoco:coverage>
 	</target>
+	
 	<!-- =================================================================== -->
 	<target name="maps" depends="map-xml,map-svg,map-main" />
 	<target name="test" depends="junit,junit-report " />
 	<target name="cruise-control" depends="release" />
-	<target name="release" depends="clean,all,src.jar,javadocs" /> 
-	<target name="all" depends="jar,maps,war,test,deploy" />
+	<target name="release" depends="clean,all,maps,war,test,deploy,src.jar,javadocs" />
+	<target name="web" depends="clean,all,maps,war,deploy" />
+	<target name="all" depends="jar" />
 </project>

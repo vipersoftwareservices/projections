@@ -4,9 +4,10 @@
 
 PROJECTIONS is a java library which implements calculations for mapping applications. 
 
-* [Getting Started](#getting-started) 
-* [API JavaDocs ](doc/api/index.html) 
-* [View Projections](http://www.tnevin.com/projections/) View the projections
+* [Getting Started](#getting-started) Download, install, and build the jar file.
+* [API](https://github.com/vipersoftwareservices/projections/doc/api/index.html) API documentation(javadocs)
+* [Binary Download](http://www.tnevin.com/projections/) Pre-built projections jar file
+* [Examples](http://www.tnevin.com/projections/) View the projections
 * [Authors Home Page](http://www.tnevin.com) In progress
 
 ## Features
@@ -29,7 +30,7 @@ The following is a list of the mapping projections provided:
 15. Space Oblique Mercator (in Progress)
 16. Stereographic
 17. Transverse Mercator
-18. Universal Transerse Mercator
+18. Universal Transverse Mercator
 19. Vertical Perspective
   
 ## Getting Started
@@ -48,7 +49,7 @@ What things you need to install the software and how to install them
 
 Note: ant commands have been run and tested using cygwin bash shell. Dos shell, and other linux shells will probably work.
 
-### Installing
+### Installing  
 
 1. Download the PROJECTIONS zip file, and unzip it.
 
@@ -61,45 +62,35 @@ https://github.com/vipersoftwareservices/projections
 ```
 ant clean all
 ```
+ 
 
-
-## Running the tests
-
-Run the tests, by running ant command.
+3. Run the tests, by running ant command.
 
 ```
 ant test
 ```
 
-View the JUnit test results, by bringing the following file up in browser.
+4. View the JUnit test results, by bringing the following file up in browser.
 For windows, double click the file in the disk explorer, the location of the file is:
 
 ```
 <install-directory>/build/reports/index.html
 ```
 
-View the code coverage file in the browser..
+5. View the code coverage file in the browser..
 For windows, double click the file in the disk explorer, the location of the file is:
 
 ```
 <install-directory>/build/jacoco/index.html
 ```
  
-### And coding style tests
+6. Find the binary jar file in the build directory and use
 
-Check on coding style by running:
 
 ```
-ant checkstyle
+<install-directory>/build/world.jar
 ```
-
-## Deployment
-
-In progress
-
-## Built With
-
-In progress 
+ 
 
 ## Contributing
 
@@ -119,7 +110,4 @@ See also the list of [contributors](https://github.com/vipersoftwareservices/pro
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details
 
-## Acknowledgments
-
-In progress
-
+ 
