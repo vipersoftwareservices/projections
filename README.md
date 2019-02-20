@@ -6,8 +6,8 @@ PROJECTIONS is a java library which implements calculations for mapping applicat
 
 * [Getting Started](#getting-started) Download, install, and build the jar file.
 * [API Docs](https://cdn.rawgit.com/vipersoftwareservices/projections/master/doc/api/index.html) JavaDoc API documentation
-* [Binary Download](http://www.tnevin.com/projections/) Pre-built projections jar file
-* [Examples](http://www.tnevin.com/projections/) View the projections
+* [Binary Download](http://www.tnevin.com/viper/software/world.html) Pre-built projections jar file
+* [Examples](http://www.tnevin.com/viper/software/world.html) View the projections
 * [Authors Home Page](http://www.tnevin.com) In progress
 
 ## Features
