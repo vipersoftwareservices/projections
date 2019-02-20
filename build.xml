@@ -123,10 +123,11 @@
 	<!-- =================================================================== -->
 	<!-- Create a war file for distribution -->
 	<!-- =================================================================== -->
-	<target name="war" depends="jar">
+	<target name="war">
 		<war destfile="${build.dir}/${name}.war" webxml="${basedir}/web/WEB-INF/web.xml">
 			<fileset dir="${basedir}/web" excludes="WEB-INF/**" />
 			<fileset dir="${basedir}/etc" />
+			<fileset dir="${basedir}" includes="doc/**/*.*" />
 			<lib dir="${build.dir}" includes="*.jar" />
 			<lib dir="${basedir}/lib" includes="*.jar" />
 			<lib dir="${basedir}/lib/libgen" includes="*.jar" />
@@ -136,7 +137,7 @@
 	<!-- =================================================================== -->
 	<!-- deploy to server -->
 	<!-- =================================================================== -->
-	<target name="deploy" depends="war">
+	<target name="deploy">
 		<delete quiet="true">
 			<fileset dir="${tomcat.home}/logs" includes="*.*" />
 			<fileset dir="${tomcat.home}/webapps/${name}" includes="*.*" />
@@ -305,12 +306,12 @@
 			</junit>
 		</jacoco:coverage>
 	</target>
-	
+
 	<!-- =================================================================== -->
 	<target name="maps" depends="map-xml,map-svg,map-main" />
 	<target name="test" depends="junit,junit-report " />
 	<target name="cruise-control" depends="release" />
-	<target name="release" depends="clean,all,maps,war,test,deploy,src.jar,javadocs" />
-	<target name="web" depends="clean,all,maps,war,deploy" />
+	<target name="release" depends="clean,all,maps,jar,javadocs,war,test,deploy,src.jar" />
+	<target name="web" depends="clean,all,maps,jar,war,deploy" />
 	<target name="all" depends="jar" />
 </project>
